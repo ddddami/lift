@@ -96,7 +96,7 @@ export function Body() {
             <div className="text-[10px] font-bold tracking-widest text-lift-accent-1">{format(new Date(), 'MMM d, yyyy')}</div>
           </div>
           <form 
-            className="flex gap-2"
+            className="flex gap-2 w-full"
             onSubmit={(e) => { e.preventDefault(); handleLog(); }}
           >
             <input 
@@ -107,12 +107,12 @@ export function Body() {
               value={weightInput}
               onChange={e => setWeightInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="bg-[#111] border border-[#222] rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-lift-accent-1 transition-colors flex-1 w-full font-bold"
+              className="bg-[#111] border border-[#222] rounded-lg px-3 py-3 text-[16px] text-white focus:outline-none focus:border-lift-accent-1 transition-colors flex-1 min-w-0 font-bold"
             />
             <button 
               type="submit"
               disabled={!weightInput}
-              className="bg-lift-accent-1 text-[#111] px-5 rounded-lg font-bold text-xs disabled:opacity-50 transition-opacity cursor-pointer border-none"
+              className="bg-lift-accent-1 text-[#111] px-5 rounded-lg font-bold text-xs disabled:opacity-50 transition-opacity cursor-pointer border-none shrink-0"
             >
               LOG
             </button>
