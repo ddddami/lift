@@ -1,19 +1,28 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useStore } from '../store/useStore';
 import { format, differenceInDays } from 'date-fns';
 import { Activity, Scale, TrendingUp, TrendingDown, Minus, Trash2 } from 'lucide-react';
+import { Link } from '@tanstack/react-router';
 
 export function Body() {
   const { weightLogs, addWeightLog, deleteWeightLog } = useStore();
   const [weightInput, setWeightInput] = useState('');
-  const [dateInput, setDateInput] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleLog = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleLog = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     const w = parseFloat(weightInput);
-    if (!isNaN(w) && w > 0 && dateInput) {
-      addWeightLog(w, dateInput);
+    if (!isNaN(w) && w > 0) {
+      addWeightLog(w, format(new Date(), 'yyyy-MM-dd'));
       setWeightInput('');
+      if (inputRef.current) inputRef.current.blur();
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleLog();
     }
   };
 
@@ -60,8 +69,8 @@ export function Body() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-lift-bg">
-      <div className="shrink-0 bg-lift-bg z-10 border-b border-[#161616] p-5 pt-8 pb-4">
+    <div className="flex flex-col h-full bg-lift-bg overflow-hidden">
+      <div className="shrink-0 bg-lift-bg z-10 border-b border-[#161616] p-5 pt-8 pb-4 flex justify-between items-start">
         <div className="flex items-center gap-3">
           <div className="bg-lift-accent-1/20 p-3 rounded-full">
             <Activity className="w-6 h-6 text-lift-accent-1" />
@@ -71,42 +80,46 @@ export function Body() {
             <p className="text-lift-text-dim text-[11px] mt-1 font-medium tracking-wide">Track your weight over time.</p>
           </div>
         </div>
+        <Link 
+          to="/"
+          className="text-[#666] hover:text-white transition-colors bg-transparent border-none text-[11px] font-bold tracking-widest mt-1"
+        >
+          CLOSE
+        </Link>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-5 pb-8">
-        {/* LOG FORM */}
-        <div className="bg-lift-card border border-lift-border rounded-xl p-5 mb-6 shadow-sm">
-          <h2 className="text-[10px] font-bold tracking-widest text-[#777] uppercase mb-4">Log Weight</h2>
-          <form onSubmit={handleLog} className="flex gap-2">
+      <div className="flex-1 flex flex-col min-h-0 p-5 pb-8 overflow-hidden">
+        {/* LOG FORM (Fixed at top) */}
+        <div className="shrink-0 bg-lift-card border border-lift-border rounded-xl p-5 mb-6 shadow-sm">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-[10px] font-bold tracking-widest text-[#777] uppercase">Log Today's Weight</h2>
+            <div className="text-[10px] font-bold tracking-widest text-lift-accent-1">{format(new Date(), 'MMM d, yyyy')}</div>
+          </div>
+          <div className="flex gap-2">
             <input 
-              type="date"
-              value={dateInput}
-              onChange={e => setDateInput(e.target.value)}
-              max={format(new Date(), 'yyyy-MM-dd')}
-              className="bg-[#111] border border-[#222] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-lift-accent-1 transition-colors shrink-0"
-            />
-            <input 
+              ref={inputRef}
               type="number" 
               step="0.1"
               placeholder="e.g. 75.5"
               value={weightInput}
               onChange={e => setWeightInput(e.target.value)}
-              className="bg-[#111] border border-[#222] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-lift-accent-1 transition-colors flex-1 w-full"
+              onKeyDown={handleKeyDown}
+              className="bg-[#111] border border-[#222] rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-lift-accent-1 transition-colors flex-1 w-full font-bold"
             />
             <button 
-              type="submit"
+              onClick={() => handleLog()}
               disabled={!weightInput}
-              className="bg-lift-accent-1 text-[#111] px-4 rounded-lg font-bold text-xs disabled:opacity-50 transition-opacity cursor-pointer border-none"
+              className="bg-lift-accent-1 text-[#111] px-5 rounded-lg font-bold text-xs disabled:opacity-50 transition-opacity cursor-pointer border-none"
             >
               LOG
             </button>
-          </form>
+          </div>
         </div>
 
         {hasLogs ? (
           <>
-            {/* STATS */}
-            <div className="grid grid-cols-3 gap-2 mb-6">
+            {/* STATS (Fixed) */}
+            <div className="shrink-0 grid grid-cols-3 gap-2 mb-6">
               <div className="bg-lift-card border border-lift-border rounded-xl p-3 flex flex-col items-center text-center">
                 <div className="text-[10px] font-bold tracking-widest text-[#777] uppercase mb-1">Total Change</div>
                 <div className="text-lg font-black text-white">
@@ -129,8 +142,8 @@ export function Body() {
               </div>
             </div>
 
-            {/* CHART */}
-            <div className="bg-lift-card border border-lift-border rounded-xl p-5 mb-6 overflow-hidden">
+            {/* CHART (Fixed) */}
+            <div className="shrink-0 bg-lift-card border border-lift-border rounded-xl p-5 mb-6 overflow-hidden">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-[10px] font-bold tracking-widest text-[#777] uppercase">Progress Chart</h2>
                 <div className="text-[10px] font-bold bg-[#111] px-2 py-1 rounded text-lift-accent-1">
@@ -138,7 +151,7 @@ export function Body() {
                 </div>
               </div>
               
-              <div className="relative w-full h-[120px] mb-2">
+              <div className="relative w-full h-[100px] mb-2">
                 <svg viewBox="0 0 300 120" preserveAspectRatio="none" className="w-full h-full overflow-visible">
                   {/* Grid Lines */}
                   <line x1="0" y1="0" x2="300" y2="0" stroke="#222" strokeWidth="1" strokeDasharray="4 4" />
@@ -174,12 +187,12 @@ export function Body() {
               </div>
             </div>
 
-            {/* LOG HISTORY */}
-            <div className="bg-lift-card border border-lift-border rounded-xl p-5 mb-6">
-              <h2 className="text-[10px] font-bold tracking-widest text-[#777] uppercase mb-4">History</h2>
-              <div className="flex flex-col gap-2">
+            {/* LOG HISTORY (Scrollable) */}
+            <div className="flex-1 min-h-0 bg-lift-card border border-lift-border rounded-xl p-5 flex flex-col">
+              <h2 className="text-[10px] font-bold tracking-widest text-[#777] uppercase mb-4 shrink-0">History</h2>
+              <div className="flex-1 overflow-y-auto pr-1 hide-scrollbar flex flex-col gap-2 pb-20">
                 {[...weightLogs].reverse().map(log => (
-                  <div key={log.date} className="flex justify-between items-center p-3 bg-[#111] rounded-lg">
+                  <div key={log.date} className="flex justify-between items-center p-3 bg-[#111] rounded-lg shrink-0">
                     <div className="text-[11px] font-bold text-[#AAA]">
                       {format(new Date(log.date), 'MMMM d, yyyy')}
                     </div>
@@ -198,7 +211,7 @@ export function Body() {
             </div>
           </>
         ) : (
-          <div className="text-center py-10 border border-dashed border-[#222] rounded-xl">
+          <div className="text-center py-10 border border-dashed border-[#222] rounded-xl shrink-0 mt-10">
             <Scale className="w-8 h-8 text-[#333] mx-auto mb-3" />
             <h3 className="text-white font-bold text-sm mb-1">No Data Yet</h3>
             <p className="text-[11px] text-[#666]">Log your first weight to see your progress chart.</p>

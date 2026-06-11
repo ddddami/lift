@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { plans } from '../data/plans';
 import { 
@@ -6,13 +6,15 @@ import {
   startOfMonth, endOfMonth, endOfWeek, isSameMonth, isToday, addMonths, subMonths, isSameDay
 } from 'date-fns';
 import clsx from 'clsx';
-import { Dumbbell, Flame, Trophy, ChevronLeft, ChevronRight, CheckCircle2, Plus } from 'lucide-react';
+import { Dumbbell, Flame, Trophy, ChevronLeft, ChevronRight, CheckCircle2, Plus, Activity } from 'lucide-react';
+import { Link } from '@tanstack/react-router';
 
 export function Tracker() {
   const { activityMap, togglePastDate } = useStore();
   const [currentMonthDate, setCurrentMonthDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isLoggingModalOpen, setIsLoggingModalOpen] = useState(false);
+  const heatmapScrollRef = useRef<HTMLDivElement>(null);
 
   // Generate calendar grid
   const monthStart = startOfMonth(currentMonthDate);
@@ -25,9 +27,16 @@ export function Tracker() {
   const currentWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
   const currentWeekDays = eachDayOfInterval({ start: currentWeekStart, end: subDays(currentWeekStart, -6) });
 
-  // Heatmap View (last 12 weeks)
-  const heatmapStart = startOfWeek(subDays(new Date(), 83), { weekStartsOn: 1 });
+  // Heatmap View (last 52 weeks)
+  const heatmapStart = startOfWeek(subDays(new Date(), 364), { weekStartsOn: 1 });
   const heatmapDays = eachDayOfInterval({ start: heatmapStart, end: new Date() });
+
+  // Scroll heatmap to far right on mount
+  useEffect(() => {
+    if (heatmapScrollRef.current) {
+      heatmapScrollRef.current.scrollLeft = heatmapScrollRef.current.scrollWidth;
+    }
+  }, []);
 
   // Stats
   const entries = Object.entries(activityMap)
@@ -63,22 +72,29 @@ export function Tracker() {
 
   return (
     <div className="flex flex-col h-full bg-lift-bg">
-      <div className="shrink-0 bg-lift-bg z-10 border-b border-[#161616] p-5 pt-8 pb-4">
-        <div className="flex items-center gap-3">
-          <div className="bg-lift-accent-4/20 p-3 rounded-full">
-            <Dumbbell className="w-6 h-6 text-lift-accent-4" />
+      {/* Sticky Header Container */}
+      <div className="shrink-0 bg-lift-bg z-10 border-b border-[#161616]">
+        {/* Title */}
+        <div className="p-5 pt-8 pb-3 flex justify-between items-start">
+          <div className="flex items-center gap-3">
+            <div className="bg-lift-accent-4/20 p-3 rounded-full">
+              <Dumbbell className="w-6 h-6 text-lift-accent-4" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-extrabold tracking-tight leading-none">TRACKER</h1>
+              <p className="text-lift-text-dim text-[11px] mt-1 font-medium tracking-wide">Consistency over perfection.</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-extrabold tracking-tight leading-none">TRACKER</h1>
-            <p className="text-lift-text-dim text-[11px] mt-1 font-medium tracking-wide">Consistency over perfection.</p>
-          </div>
+          <Link 
+            to="/body"
+            className="bg-[#111] p-2.5 rounded-full text-lift-accent-1 hover:text-[#FF8A66] transition-colors flex items-center justify-center border-none"
+          >
+            <Activity className="w-5 h-5" />
+          </Link>
         </div>
-      </div>
 
-      <div className="flex-1 overflow-y-auto p-5 pb-8">
-        
-        {/* THIS WEEK */}
-        <div className="mb-6">
+        {/* THIS WEEK (Sticky) */}
+        <div className="px-5 pb-5">
           <div className="text-[10px] tracking-[0.2em] text-[#555] font-bold uppercase mb-3">This Week</div>
           <div className="flex justify-between gap-1">
             {currentWeekDays.map(day => {
@@ -116,27 +132,32 @@ export function Tracker() {
             })}
           </div>
         </div>
+      </div>
 
-        {/* GITHUB HEATMAP (LAST 12 WEEKS) */}
+      <div className="flex-1 overflow-y-auto p-5 pb-8">
+        {/* GITHUB HEATMAP (LAST 52 WEEKS) */}
         <div className="bg-lift-card border border-lift-border rounded-xl p-5 mb-6 shadow-sm">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-[10px] font-bold tracking-widest text-[#777] uppercase">12-Week Heatmap</h2>
+            <h2 className="text-[10px] font-bold tracking-widest text-[#777] uppercase">52-Week Heatmap</h2>
           </div>
           
-          <div className="flex gap-1 overflow-x-auto hide-scrollbar pb-2">
+          <div 
+            ref={heatmapScrollRef}
+            className="flex gap-1 overflow-x-auto hide-scrollbar pb-2"
+          >
             {chunkArray(heatmapDays, 7).map((week, weekIdx) => (
-              <div key={weekIdx} className="flex flex-col gap-1">
+              <div key={weekIdx} className="flex flex-col gap-1 shrink-0">
                 {week.map((day, dayIdx) => {
                   const dateStr = format(day, 'yyyy-MM-dd');
                   const count = activityMap[dateStr] ? activityMap[dateStr].count : 0;
-                  if (day > new Date()) return <div key={dayIdx} className="w-[14px] h-[14px] bg-transparent" />;
+                  if (day > new Date()) return <div key={dayIdx} className="w-[12px] h-[12px] bg-transparent" />;
                   
                   return (
                     <button
                       key={dayIdx}
                       onClick={() => setSelectedDate(day)}
                       className={clsx(
-                        "w-[14px] h-[14px] rounded-[3px] transition-colors cursor-pointer border-none p-0",
+                        "w-[12px] h-[12px] rounded-[3px] transition-colors cursor-pointer border-none p-0",
                         getIntensityClass(count),
                         isSameDay(day, selectedDate) && "ring-1 ring-white scale-110 z-10"
                       )}
