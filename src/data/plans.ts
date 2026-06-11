@@ -45,6 +45,7 @@ export const plans: Record<string, Plan> = {
           { name: "Romanian Deadlift", sets: "3", reps: "10–12", note: "Slow down, feel hamstrings stretch. Don't rush this." },
           { name: "Lateral Raises", sets: "3", reps: "12–15", note: "Controlled. This is what makes shoulders WIDE. Never skip." },
           { name: "Calf Raises", sets: "3", reps: "15–20", note: "Slow up, hold at top, slow down." },
+          { name: "Hanging Knee Raises", sets: "3", reps: "15", note: "Core stability and lower abs." },
         ],
       },
       {
@@ -62,6 +63,7 @@ export const plans: Record<string, Plan> = {
           { name: "Face Pulls", sets: "3", reps: "15", note: "Rear delts = 3D shoulder look. Most guys skip this and wonder why shoulders look flat." },
           { name: "Barbell Curl", sets: "3", reps: "10–12", note: "Full range. No swinging." },
           { name: "Tricep Pushdown", sets: "3", reps: "10–12", note: "Triceps = 2/3 of your arm. More important than biceps for arm size." },
+          { name: "Cable Crunches", sets: "3", reps: "12–15", note: "Constant tension on the abs. Don't pull with arms." },
         ],
       },
       {
@@ -79,7 +81,7 @@ export const plans: Record<string, Plan> = {
           { name: "Dumbbell Shoulder Press", sets: "3", reps: "10–12", note: "Seated. Strict form. Shoulder volume hit 3." },
           { name: "Lateral Raises", sets: "3", reps: "12–15", note: "Third hit this week. Shoulder width compounds over time." },
           { name: "Hammer Curls", sets: "2", reps: "12", note: "Brachialis = arm thickness that shows from all angles." },
-          { name: "Plank / Ab Wheel", sets: "3", reps: "30–45s", note: "Core bracing. Keeps waist tight which makes V-taper more visible." },
+          { name: "Ab Wheel", sets: "3", reps: "10", note: "Or plank if wheel unavailable. Core bracing. Keeps waist tight." },
         ],
       },
     ],
@@ -105,6 +107,7 @@ export const plans: Record<string, Plan> = {
           { name: "Lateral Raises", sets: "4", reps: "12–15", note: "4 sets this day. Shoulder width is the #1 aesthetic muscle." },
           { name: "Tricep Pushdown", sets: "3", reps: "10–12", note: "Superset with lateral raises if you want to save time." },
           { name: "Cable / Barbell Curl", sets: "3", reps: "10–12", note: "Arms get hit every upper day — consistent volume = arm growth." },
+          { name: "Hanging Knee Raises", sets: "3", reps: "15", note: "Core stability and lower abs." },
         ],
       },
       {
@@ -140,6 +143,7 @@ export const plans: Record<string, Plan> = {
           { name: "Lateral Raises", sets: "3", reps: "15", note: "Second hit on side delts. Consistent volume = width over time." },
           { name: "Hammer Curls", sets: "3", reps: "12", note: "Brachialis thickness. Different stimulus from barbell curls." },
           { name: "Overhead Tricep Extension", sets: "3", reps: "12", note: "Long head of tricep — gives arm that full, thick look." },
+          { name: "Cable Crunches", sets: "3", reps: "12–15", note: "Constant tension on the abs. Don't pull with arms." },
         ],
       },
       {
