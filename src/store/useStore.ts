@@ -14,6 +14,7 @@ interface AppState {
   setActiveDay: (dayIndex: number) => void;
   toggleExercise: (planId: string, dayIdx: number, exIdx: number, isDone: boolean) => void;
   clearDoneForToday: () => void;
+  togglePastDate: (dateStr: string) => void;
 }
 
 export const useStore = create<AppState>()(
@@ -61,6 +62,19 @@ export const useStore = create<AppState>()(
           delete newActivityMap[dateStr];
 
           return { doneExercises: newDone, activityMap: newActivityMap };
+        });
+      },
+
+      togglePastDate: (dateStr) => {
+        set((state) => {
+          const newMap = { ...state.activityMap };
+          if (newMap[dateStr] > 0) {
+            delete newMap[dateStr];
+          } else {
+            // Log a generic full workout (e.g. 5 exercises)
+            newMap[dateStr] = 5;
+          }
+          return { activityMap: newMap };
         });
       }
     }),
