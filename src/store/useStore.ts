@@ -2,7 +2,19 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { format } from 'date-fns';
 
-export type ActivityMap = Record<string, number>; // date "yyyy-MM-dd" -> number of exercises done
+export type ActivityEntry = {
+  count: number;
+  planId?: string;
+  dayIdx?: number;
+};
+
+export type ActivityMap = Record<string, ActivityEntry | number>; // allows backwards compat with older `number` format
+
+export const getActivityEntry = (val: ActivityEntry | number | undefined): ActivityEntry | null => {
+  if (val === undefined || val === null) return null;
+  if (typeof val === 'number') return { count: val };
+  return val as ActivityEntry;
+};
 
 interface AppState {
   activePlan: "3" | "4";
@@ -14,7 +26,7 @@ interface AppState {
   setActiveDay: (dayIndex: number) => void;
   toggleExercise: (planId: string, dayIdx: number, exIdx: number, isDone: boolean) => void;
   clearDoneForToday: () => void;
-  togglePastDate: (dateStr: string) => void;
+  togglePastDate: (dateStr: string, planId?: string, dayIdx?: number) => void;
 }
 
 export const useStore = create<AppState>()(
@@ -36,15 +48,25 @@ export const useStore = create<AppState>()(
         set((state) => {
           const newDone = { ...state.doneExercises, [key]: isDone };
           
-          // Calculate how many exercises are done today across all plans
-          // A bit brute force, but fine for our scale
           const todayCount = Object.entries(newDone).filter(
             ([k, v]) => k.startsWith(dateStr) && v
           ).length;
 
+          // If count falls to 0, we can delete it from activity map
+          const newActivityMap = { ...state.activityMap };
+          if (todayCount === 0) {
+            delete newActivityMap[dateStr];
+          } else {
+            newActivityMap[dateStr] = {
+              count: todayCount,
+              planId,
+              dayIdx
+            };
+          }
+
           return {
             doneExercises: newDone,
-            activityMap: { ...state.activityMap, [dateStr]: todayCount }
+            activityMap: newActivityMap
           };
         });
       },
@@ -65,14 +87,21 @@ export const useStore = create<AppState>()(
         });
       },
 
-      togglePastDate: (dateStr) => {
+      togglePastDate: (dateStr, planId, dayIdx) => {
         set((state) => {
           const newMap = { ...state.activityMap };
-          if (newMap[dateStr] > 0) {
+          const existing = newMap[dateStr];
+          
+          if (existing) {
+            // Un-toggle
             delete newMap[dateStr];
           } else {
-            // Log a generic full workout (e.g. 5 exercises)
-            newMap[dateStr] = 5;
+            // Toggle on
+            newMap[dateStr] = {
+              count: 5, // Generic full workout count to hit max intensity
+              planId,
+              dayIdx
+            };
           }
           return { activityMap: newMap };
         });
