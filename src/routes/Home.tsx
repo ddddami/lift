@@ -97,7 +97,7 @@ export function Home() {
         </div>
 
         {/* Day Overview (Sticky) */}
-        <div className="px-5 pt-4 pb-2 shadow-sm">
+        <div className="px-5 pt-4 pb-2">
           <div 
             style={{ 
               backgroundColor: `${day.accentColor}18`,
