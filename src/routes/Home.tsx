@@ -19,7 +19,7 @@ export function Home() {
   return (
     <div className="flex flex-col h-full bg-lift-bg">
       {/* Sticky Header Container */}
-      <div className="shrink-0 bg-lift-bg z-10 border-b border-[#161616]">
+      <div className="shrink-0 bg-lift-bg z-10">
         {/* Header */}
         <div className="p-5 pt-8 pb-3 flex justify-between items-start">
           <div>
@@ -53,7 +53,7 @@ export function Home() {
         {/* Plan switcher */}
         <div className="px-5 pb-4">
           <div className="flex bg-[#111] rounded-xl p-1 gap-1">
-            {(["3", "4"] as const).map(p => {
+            {(["4", "3"] as const).map(p => {
               const isActive = activePlan === p;
               const accent = p === "3" ? "text-[#000] bg-lift-accent-3" : "text-[#000] bg-lift-accent-4";
               
@@ -119,7 +119,7 @@ export function Home() {
       </div>
 
       {/* Scrollable Content Container (Exercises Only) */}
-      <div className="flex-1 overflow-y-auto pb-8 p-5 pt-4">
+      <div className="flex-1 overflow-y-auto pb-8 px-5 pt-1">
 
         {/* Exercises */}
         <div className="flex flex-col gap-2">
