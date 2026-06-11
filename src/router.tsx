@@ -2,6 +2,7 @@ import { createRouter, createRoute, createRootRoute } from '@tanstack/react-rout
 import { Layout } from './components/Layout';
 import { Home } from './routes/Home';
 import { Tracker } from './routes/Tracker';
+import { Body } from './routes/Body';
 
 const rootRoute = createRootRoute({
   component: Layout,
@@ -19,7 +20,13 @@ const trackerRoute = createRoute({
   component: Tracker,
 });
 
-const routeTree = rootRoute.addChildren([indexRoute, trackerRoute]);
+const bodyRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/body',
+  component: Body,
+});
+
+const routeTree = rootRoute.addChildren([indexRoute, trackerRoute, bodyRoute]);
 
 export const router = createRouter({ routeTree });
 

@@ -8,12 +8,11 @@ export type ActivityEntry = {
   dayIdx?: number;
 };
 
-export type ActivityMap = Record<string, ActivityEntry | number>; // allows backwards compat with older `number` format
+export type ActivityMap = Record<string, ActivityEntry>;
 
-export const getActivityEntry = (val: ActivityEntry | number | undefined): ActivityEntry | null => {
-  if (val === undefined || val === null) return null;
-  if (typeof val === 'number') return { count: val };
-  return val as ActivityEntry;
+export type WeightLog = {
+  date: string; // "yyyy-MM-dd"
+  weight: number;
 };
 
 interface AppState {
@@ -21,12 +20,15 @@ interface AppState {
   activeDay: number;
   doneExercises: Record<string, boolean>; // key: "yyyy-MM-dd-planId-dayIdx-exIdx"
   activityMap: ActivityMap;
+  weightLogs: WeightLog[];
 
   setActivePlan: (plan: "3" | "4") => void;
   setActiveDay: (dayIndex: number) => void;
   toggleExercise: (planId: string, dayIdx: number, exIdx: number, isDone: boolean) => void;
   clearDoneForToday: () => void;
   togglePastDate: (dateStr: string, planId?: string, dayIdx?: number) => void;
+  addWeightLog: (weight: number, dateStr?: string) => void;
+  deleteWeightLog: (dateStr: string) => void;
 }
 
 export const useStore = create<AppState>()(
@@ -36,6 +38,7 @@ export const useStore = create<AppState>()(
       activeDay: 0,
       doneExercises: {},
       activityMap: {},
+      weightLogs: [],
 
       setActivePlan: (plan) => set({ activePlan: plan, activeDay: 0 }),
       
@@ -52,7 +55,6 @@ export const useStore = create<AppState>()(
             ([k, v]) => k.startsWith(dateStr) && v
           ).length;
 
-          // If count falls to 0, we can delete it from activity map
           const newActivityMap = { ...state.activityMap };
           if (todayCount === 0) {
             delete newActivityMap[dateStr];
@@ -93,22 +95,49 @@ export const useStore = create<AppState>()(
           const existing = newMap[dateStr];
           
           if (existing) {
-            // Un-toggle
             delete newMap[dateStr];
           } else {
-            // Toggle on
             newMap[dateStr] = {
-              count: 5, // Generic full workout count to hit max intensity
+              count: 5,
               planId,
               dayIdx
             };
           }
           return { activityMap: newMap };
         });
+      },
+
+      addWeightLog: (weight, dateStr = format(new Date(), 'yyyy-MM-dd')) => {
+        set((state) => {
+          const logs = state.weightLogs.filter(log => log.date !== dateStr);
+          logs.push({ date: dateStr, weight });
+          // Sort ascending by date
+          logs.sort((a, b) => a.date.localeCompare(b.date));
+          return { weightLogs: logs };
+        });
+      },
+
+      deleteWeightLog: (dateStr) => {
+        set((state) => ({
+          weightLogs: state.weightLogs.filter(log => log.date !== dateStr)
+        }));
       }
     }),
     {
       name: 'liftlog-storage',
+      version: 1,
+      migrate: (persistedState: any, version) => {
+        if (version === 0) {
+          const newMap = { ...persistedState.activityMap };
+          for (const key in newMap) {
+            if (typeof newMap[key] === 'number') {
+              newMap[key] = { count: newMap[key] };
+            }
+          }
+          return { ...persistedState, activityMap: newMap };
+        }
+        return persistedState;
+      }
     }
   )
 );

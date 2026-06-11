@@ -1,5 +1,5 @@
 import { Link, Outlet } from '@tanstack/react-router';
-import { Dumbbell, CalendarDays } from 'lucide-react';
+import { Dumbbell, CalendarDays, Activity } from 'lucide-react';
 
 export function Layout() {
   return (
@@ -30,6 +30,16 @@ export function Layout() {
           >
             <CalendarDays className="w-6 h-6 mb-1" />
             <span className="text-[10px] font-bold tracking-widest">TRACKER</span>
+          </Link>
+          <Link
+            to="/body"
+            className="flex flex-col items-center p-2 rounded-xl text-lift-text-dim transition-all duration-200"
+            activeProps={{
+              className: 'text-lift-accent-1 !text-lift-accent-1',
+            }}
+          >
+            <Activity className="w-6 h-6 mb-1" />
+            <span className="text-[10px] font-bold tracking-widest">BODY</span>
           </Link>
         </div>
       </nav>

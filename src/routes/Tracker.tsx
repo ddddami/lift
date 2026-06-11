@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useStore, getActivityEntry } from '../store/useStore';
+import { useStore } from '../store/useStore';
 import { plans } from '../data/plans';
 import { 
   subDays, format, eachDayOfInterval, startOfWeek, differenceInDays,
@@ -25,22 +25,25 @@ export function Tracker() {
   const currentWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
   const currentWeekDays = eachDayOfInterval({ start: currentWeekStart, end: subDays(currentWeekStart, -6) });
 
+  // Heatmap View (last 12 weeks)
+  const heatmapStart = startOfWeek(subDays(new Date(), 83), { weekStartsOn: 1 });
+  const heatmapDays = eachDayOfInterval({ start: heatmapStart, end: new Date() });
+
   // Stats
   const entries = Object.entries(activityMap)
-    .map(([date, val]) => ({ date, entry: getActivityEntry(val) }))
-    .filter(e => e.entry && e.entry.count > 0);
+    .filter(([_, entry]) => entry && entry.count > 0);
   
   const totalWorkouts = entries.length;
   const currentStreak = calculateStreak(activityMap);
   const longestStreak = calculateLongestStreak(activityMap);
-  const monthlyWorkouts = entries.filter(e => e.date.startsWith(format(new Date(), 'yyyy-MM'))).length;
+  const monthlyWorkouts = entries.filter(([d]) => d.startsWith(format(new Date(), 'yyyy-MM'))).length;
 
   const nextMonth = () => setCurrentMonthDate(addMonths(currentMonthDate, 1));
   const prevMonth = () => setCurrentMonthDate(subMonths(currentMonthDate, 1));
 
   // Selected Date Info
   const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
-  const selectedEntry = getActivityEntry(activityMap[selectedDateStr]);
+  const selectedEntry = activityMap[selectedDateStr];
   const hasWorkout = selectedEntry && selectedEntry.count > 0;
 
   // Log Modal State
@@ -80,7 +83,7 @@ export function Tracker() {
           <div className="flex justify-between gap-1">
             {currentWeekDays.map(day => {
               const dStr = format(day, 'yyyy-MM-dd');
-              const entry = getActivityEntry(activityMap[dStr]);
+              const entry = activityMap[dStr];
               const hit = entry && entry.count > 0;
               const isSelected = isSameDay(day, selectedDate);
               
@@ -114,6 +117,49 @@ export function Tracker() {
           </div>
         </div>
 
+        {/* GITHUB HEATMAP (LAST 12 WEEKS) */}
+        <div className="bg-lift-card border border-lift-border rounded-xl p-5 mb-6 shadow-sm">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-[10px] font-bold tracking-widest text-[#777] uppercase">12-Week Heatmap</h2>
+          </div>
+          
+          <div className="flex gap-1 overflow-x-auto hide-scrollbar pb-2">
+            {chunkArray(heatmapDays, 7).map((week, weekIdx) => (
+              <div key={weekIdx} className="flex flex-col gap-1">
+                {week.map((day, dayIdx) => {
+                  const dateStr = format(day, 'yyyy-MM-dd');
+                  const count = activityMap[dateStr] ? activityMap[dateStr].count : 0;
+                  if (day > new Date()) return <div key={dayIdx} className="w-[14px] h-[14px] bg-transparent" />;
+                  
+                  return (
+                    <button
+                      key={dayIdx}
+                      onClick={() => setSelectedDate(day)}
+                      className={clsx(
+                        "w-[14px] h-[14px] rounded-[3px] transition-colors cursor-pointer border-none p-0",
+                        getIntensityClass(count),
+                        isSameDay(day, selectedDate) && "ring-1 ring-white scale-110 z-10"
+                      )}
+                      title={`${dateStr}`}
+                    />
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+          
+          <div className="flex items-center justify-between mt-2 text-[9px] text-[#555] uppercase font-bold tracking-widest">
+            <div>Less</div>
+            <div className="flex gap-1">
+              <div className="w-[10px] h-[10px] rounded-[2px] bg-[#161616]" />
+              <div className="w-[10px] h-[10px] rounded-[2px] bg-[#1A3A1A]" />
+              <div className="w-[10px] h-[10px] rounded-[2px] bg-[#2A7A2A]" />
+              <div className="w-[10px] h-[10px] rounded-[2px] bg-[#4A9A6A]" />
+            </div>
+            <div>More</div>
+          </div>
+        </div>
+
         {/* MONTHLY CALENDAR */}
         <div className="bg-lift-card border border-lift-border rounded-xl p-5 mb-6 shadow-sm">
           <div className="flex justify-between items-center mb-5">
@@ -137,7 +183,7 @@ export function Tracker() {
           <div className="grid grid-cols-7 gap-1">
             {calendarDays.map((day, i) => {
               const dStr = format(day, 'yyyy-MM-dd');
-              const entry = getActivityEntry(activityMap[dStr]);
+              const entry = activityMap[dStr];
               const count = entry ? entry.count : 0;
               const isCurrentMonth = isSameMonth(day, currentMonthDate);
               const isSel = isSameDay(day, selectedDate);
@@ -295,12 +341,20 @@ export function Tracker() {
 }
 
 // Helpers
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  const chunks = [];
+  for (let i = 0; i < arr.length; i += size) {
+    chunks.push(arr.slice(i, i + size));
+  }
+  return chunks;
+}
+
 function calculateStreak(activityMap: any): number {
   let streak = 0;
   let currDate = new Date();
   
   const checkHit = (d: Date) => {
-    const entry = getActivityEntry(activityMap[format(d, 'yyyy-MM-dd')]);
+    const entry = activityMap[format(d, 'yyyy-MM-dd')];
     return entry && entry.count > 0;
   };
 
@@ -328,7 +382,7 @@ function calculateStreak(activityMap: any): number {
 function calculateLongestStreak(activityMap: any): number {
   const dates = Object.keys(activityMap)
     .filter(k => {
-      const e = getActivityEntry(activityMap[k]);
+      const e = activityMap[k];
       return e && e.count > 0;
     })
     .sort();
