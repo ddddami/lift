@@ -95,27 +95,31 @@ export function Home() {
             );
           })}
         </div>
+
+        {/* Day Overview (Sticky) */}
+        <div className="px-5 pt-4 pb-2 shadow-sm">
+          <div 
+            style={{ 
+              backgroundColor: `${day.accentColor}18`,
+              borderColor: `${day.accentColor}44`,
+              color: day.accentColor 
+            }}
+            className="inline-block border rounded px-2.5 py-1 text-[9px] font-bold tracking-[0.15em] mb-2"
+          >
+            {day.tag}
+          </div>
+          <div className="text-[11px] text-[#666] mb-1">{day.when}</div>
+          <div 
+            style={{ borderLeftColor: day.accentColor }}
+            className="bg-lift-card border-l-4 py-2 px-3 rounded-r-md text-[11px] text-[#999] leading-relaxed"
+          >
+            {day.keyFocus}
+          </div>
+        </div>
       </div>
 
       {/* Scrollable Content Container (Exercises Only) */}
-      <div className="flex-1 overflow-y-auto pb-8 p-5">
-        <div 
-          style={{ 
-            backgroundColor: `${day.accentColor}18`,
-            borderColor: `${day.accentColor}44`,
-            color: day.accentColor 
-          }}
-          className="inline-block border rounded px-2.5 py-1 text-[9px] font-bold tracking-[0.15em] mb-2 mt-1"
-        >
-          {day.tag}
-        </div>
-        <div className="text-[11px] text-[#666] mb-1">{day.when}</div>
-        <div 
-          style={{ borderLeftColor: day.accentColor }}
-          className="bg-lift-card border-l-4 py-2 px-3 rounded-r-md text-[11px] text-[#999] mb-5 leading-relaxed"
-        >
-          {day.keyFocus}
-        </div>
+      <div className="flex-1 overflow-y-auto pb-8 p-5 pt-4">
 
         {/* Exercises */}
         <div className="flex flex-col gap-2">

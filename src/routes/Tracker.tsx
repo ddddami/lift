@@ -143,10 +143,21 @@ export function Tracker() {
           
           <div 
             ref={heatmapScrollRef}
-            className="flex gap-1 overflow-x-auto hide-scrollbar pb-2 px-1 pt-1"
+            className="overflow-x-auto hide-scrollbar pb-2 px-1 pt-1"
           >
-            {chunkArray(heatmapDays, 7).map((week, weekIdx) => (
-              <div key={weekIdx} className="flex flex-col gap-1 shrink-0">
+            <div className="flex gap-1">
+              {chunkArray(heatmapDays, 7).map((week, weekIdx, allWeeks) => {
+                const isNewMonth = weekIdx === 0 || format(week[0], 'MMM') !== format(allWeeks[weekIdx - 1][0], 'MMM');
+                
+                return (
+                  <div key={weekIdx} className="flex flex-col gap-1 shrink-0">
+                    {/* Month Label Row */}
+                    <div className="h-3 mb-1 text-[8px] font-bold text-[#666] tracking-tight relative">
+                      {isNewMonth && (
+                        <span className="absolute left-0 whitespace-nowrap">{format(week[0], 'MMM')}</span>
+                      )}
+                    </div>
+                    {/* Days */}
                 {week.map((day, dayIdx) => {
                   const dateStr = format(day, 'yyyy-MM-dd');
                   const count = activityMap[dateStr] ? activityMap[dateStr].count : 0;
@@ -166,7 +177,9 @@ export function Tracker() {
                   );
                 })}
               </div>
-            ))}
+                );
+              })}
+            </div>
           </div>
           
           <div className="flex items-center justify-between mt-2 text-[9px] text-[#555] uppercase font-bold tracking-widest">
