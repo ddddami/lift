@@ -3,13 +3,13 @@ import { Dumbbell, CalendarDays } from 'lucide-react';
 
 export function Layout() {
   return (
-    <div className="flex flex-col min-h-screen bg-lift-bg text-lift-text max-w-md mx-auto w-full pb-20 relative">
-      <main className="flex-1 overflow-y-auto">
+    <div className="flex flex-col h-[100dvh] bg-lift-bg text-lift-text max-w-md mx-auto w-full relative">
+      <main className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
         <Outlet />
       </main>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-[#0A0A0A]/90 backdrop-blur-md border-t border-lift-border p-2 z-50">
+      <nav className="shrink-0 bg-[#0A0A0A]/90 backdrop-blur-md border-t border-lift-border p-2 z-50">
         <div className="max-w-md mx-auto flex justify-around items-center">
           <Link
             to="/"
