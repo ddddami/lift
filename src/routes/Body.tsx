@@ -72,8 +72,8 @@ export function Body() {
     <div className="flex flex-col h-full bg-lift-bg">
       <div className="shrink-0 bg-lift-bg z-10 border-b border-[#161616] p-5 pt-8 pb-4 flex justify-between items-start sticky top-0">
         <div className="flex items-center gap-3">
-          <div className="bg-lift-accent-1/20 p-3 rounded-full">
-            <Activity className="w-6 h-6 text-lift-accent-1" />
+          <div className="bg-lift-accent-orange/20 p-3 rounded-full">
+            <Activity className="w-6 h-6 text-lift-accent-orange" />
           </div>
           <div>
             <h1 className="text-2xl font-extrabold tracking-tight leading-none text-white">BODY</h1>
@@ -93,7 +93,7 @@ export function Body() {
         <div className="bg-lift-card border border-lift-border rounded-xl p-5 mb-6 shadow-sm">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-[10px] font-bold tracking-widest text-[#777] uppercase">Log Today's Weight</h2>
-            <div className="text-[10px] font-bold tracking-widest text-lift-accent-1">{format(new Date(), 'MMM d, yyyy')}</div>
+            <div className="text-[10px] font-bold tracking-widest text-lift-accent-orange">{format(new Date(), 'MMM d, yyyy')}</div>
           </div>
           <form 
             className="flex gap-2 w-full"
@@ -107,12 +107,12 @@ export function Body() {
               value={weightInput}
               onChange={e => setWeightInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="bg-[#111] border border-[#222] rounded-lg px-3 py-3 text-[16px] text-white focus:outline-none focus:border-lift-accent-1 transition-colors flex-1 min-w-0 font-bold"
+              className="bg-[#111] border border-[#222] rounded-lg px-3 py-3 text-[16px] text-white focus:outline-none focus:border-lift-accent-orange transition-colors flex-1 min-w-0 font-bold"
             />
             <button 
               type="submit"
               disabled={!weightInput}
-              className="bg-lift-accent-1 text-[#111] px-5 rounded-lg font-bold text-xs disabled:opacity-50 transition-opacity cursor-pointer border-none shrink-0"
+              className="bg-lift-accent-orange text-[#111] px-5 rounded-lg font-bold text-xs disabled:opacity-50 transition-opacity cursor-pointer border-none shrink-0"
             >
               LOG
             </button>

@@ -43,7 +43,7 @@ export function Home() {
             </button>
             <Link 
               to="/body"
-              className="bg-[#111] p-2.5 rounded-full text-lift-accent-1 hover:text-[#FF8A66] transition-colors flex items-center justify-center border-none"
+              className="bg-[#111] p-2.5 rounded-full text-lift-accent-orange hover:text-[#FF8A66] transition-colors flex items-center justify-center border-none"
             >
               <Activity className="w-5 h-5" />
             </Link>
