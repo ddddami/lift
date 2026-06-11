@@ -143,7 +143,7 @@ export function Tracker() {
           
           <div 
             ref={heatmapScrollRef}
-            className="overflow-x-auto hide-scrollbar pb-2 px-1 pt-1"
+            className="overflow-x-auto overscroll-contain hide-scrollbar pb-2 px-1 pt-1"
           >
             <div className="flex gap-1">
               {chunkArray(heatmapDays, 7).map((week, weekIdx, allWeeks) => {

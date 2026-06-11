@@ -119,7 +119,7 @@ export function Home() {
       </div>
 
       {/* Scrollable Content Container (Exercises Only) */}
-      <div className="flex-1 overflow-y-auto pb-8 px-5 pt-1">
+      <div className="flex-1 overflow-y-auto overscroll-contain pb-8 px-5 pt-1">
 
         {/* Exercises */}
         <div className="flex flex-col gap-2">

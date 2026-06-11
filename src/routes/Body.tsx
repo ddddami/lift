@@ -88,14 +88,17 @@ export function Body() {
         </Link>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-5 pb-8">
+      <div className="flex-1 overflow-y-auto overscroll-contain p-5 pb-8">
         {/* LOG FORM */}
         <div className="bg-lift-card border border-lift-border rounded-xl p-5 mb-6 shadow-sm">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-[10px] font-bold tracking-widest text-[#777] uppercase">Log Today's Weight</h2>
             <div className="text-[10px] font-bold tracking-widest text-lift-accent-1">{format(new Date(), 'MMM d, yyyy')}</div>
           </div>
-          <div className="flex gap-2">
+          <form 
+            className="flex gap-2"
+            onSubmit={(e) => { e.preventDefault(); handleLog(); }}
+          >
             <input 
               ref={inputRef}
               type="number" 
@@ -107,13 +110,13 @@ export function Body() {
               className="bg-[#111] border border-[#222] rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-lift-accent-1 transition-colors flex-1 w-full font-bold"
             />
             <button 
-              onClick={() => handleLog()}
+              type="submit"
               disabled={!weightInput}
               className="bg-lift-accent-1 text-[#111] px-5 rounded-lg font-bold text-xs disabled:opacity-50 transition-opacity cursor-pointer border-none"
             >
               LOG
             </button>
-          </div>
+          </form>
         </div>
 
         {hasLogs ? (
