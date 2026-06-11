@@ -18,7 +18,7 @@ interface AppState {
 
 export const useStore = create<AppState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       activePlan: "3",
       activeDay: 0,
       doneExercises: {},

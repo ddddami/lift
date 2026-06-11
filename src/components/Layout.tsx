@@ -1,6 +1,5 @@
 import { Link, Outlet } from '@tanstack/react-router';
 import { Dumbbell, CalendarDays } from 'lucide-react';
-import clsx from 'clsx';
 
 export function Layout() {
   return (
