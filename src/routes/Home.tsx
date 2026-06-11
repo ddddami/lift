@@ -119,72 +119,82 @@ export function Home() {
 
           {/* Exercises */}
           <div className="flex flex-col gap-2">
-            {day.exercises.map((ex, i) => {
-              const exerciseKey = `${dateStr}-${activePlan}-${activeDay}-${i}`;
-              const isDone = doneExercises[exerciseKey];
-              const isExpanded = expandedEx === exerciseKey;
-              
-              return (
-                <div 
-                  key={i} 
-                  style={{
-                    borderColor: isExpanded ? `${day.accentColor}55` : (isDone ? '#1A3A1A' : '#1A1A1A')
-                  }}
-                  className={clsx(
-                    "border rounded-xl overflow-hidden transition-all duration-150",
-                    isDone ? "bg-lift-success-bg" : "bg-lift-card"
-                  )}
-                >
-                  <div
-                    onClick={() => setExpandedEx(isExpanded ? null : exerciseKey)}
-                    className="p-3.5 cursor-pointer flex justify-between items-center"
+            {day.exercises
+              .map((ex, originalIndex) => {
+                const exerciseKey = `${dateStr}-${activePlan}-${activeDay}-${originalIndex}`;
+                const isDone = !!doneExercises[exerciseKey];
+                return { ex, originalIndex, exerciseKey, isDone };
+              })
+              .sort((a, b) => {
+                if (a.isDone === b.isDone) return a.originalIndex - b.originalIndex;
+                return a.isDone ? 1 : -1;
+              })
+              .map(({ ex, originalIndex, exerciseKey, isDone }) => {
+                const isExpanded = expandedEx === exerciseKey;
+                
+                return (
+                  <div 
+                    key={originalIndex} 
+                    style={{
+                      borderColor: isExpanded ? `${day.accentColor}55` : (isDone ? '#1A3A1A' : '#1A1A1A')
+                    }}
+                    className={clsx(
+                      "border rounded-xl overflow-hidden transition-all duration-300",
+                      isDone ? "bg-lift-success-bg" : "bg-lift-card"
+                    )}
                   >
-                    <div className="flex-1">
-                      <div className={clsx(
-                        "text-[13px] font-semibold mb-1",
-                        isDone ? "text-lift-success-text line-through" : "text-[#EEE]"
-                      )}>
-                        {ex.name}
+                    <div
+                      onClick={() => toggleExercise(activePlan, activeDay, originalIndex, !isDone)}
+                      className="p-3.5 cursor-pointer flex justify-between items-center"
+                    >
+                      <div className="flex-1">
+                        <div className={clsx(
+                          "text-[13px] font-semibold mb-1 transition-colors duration-200",
+                          isDone ? "text-lift-success-text line-through" : "text-[#EEE]"
+                        )}>
+                          {ex.name}
+                        </div>
+                        <div className="flex gap-1.5">
+                          <span className="text-[10px] bg-[#1A1A1A] px-2 py-0.5 rounded text-[#777]">
+                            {ex.sets} sets
+                          </span>
+                          <span 
+                            style={{ color: day.accentColor }}
+                            className="text-[10px] bg-[#1A1A1A] px-2 py-0.5 rounded font-semibold"
+                          >
+                            {ex.reps} reps
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex gap-1.5">
-                        <span className="text-[10px] bg-[#1A1A1A] px-2 py-0.5 rounded text-[#777]">
-                          {ex.sets} sets
-                        </span>
-                        <span 
-                          style={{ color: day.accentColor }}
-                          className="text-[10px] bg-[#1A1A1A] px-2 py-0.5 rounded font-semibold"
+                      <div className="flex gap-2.5 items-center">
+                        <div
+                          className={clsx(
+                            "w-[24px] h-[24px] rounded-full flex items-center justify-center shrink-0 transition-colors duration-200",
+                            isDone ? "bg-lift-success-icon border-none text-[#EEE]" : "bg-transparent border border-[#333] text-transparent"
+                          )}
                         >
-                          {ex.reps} reps
-                        </span>
+                          <Check className="w-3.5 h-3.5" strokeWidth={3} />
+                        </div>
+                        <button
+                          onClick={e => { 
+                            e.stopPropagation(); 
+                            setExpandedEx(isExpanded ? null : exerciseKey);
+                          }}
+                          className="text-[#555] p-2 -mr-2 cursor-pointer bg-transparent border-none hover:text-[#EEE] transition-colors"
+                        >
+                          {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </button>
                       </div>
                     </div>
-                    <div className="flex gap-2.5 items-center">
-                      <button
-                        onClick={e => { 
-                          e.stopPropagation(); 
-                          toggleExercise(activePlan, activeDay, i, !isDone); 
-                        }}
-                        className={clsx(
-                          "w-[24px] h-[24px] rounded-full flex items-center justify-center cursor-pointer shrink-0 transition-colors",
-                          isDone ? "bg-lift-success-icon border-none text-[#EEE]" : "bg-transparent border border-[#333] text-transparent"
-                        )}
-                      >
-                        <Check className="w-3.5 h-3.5" strokeWidth={3} />
-                      </button>
-                      <div className="text-[#333]">
-                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    
+                    {isExpanded && (
+                      <div className="px-3.5 pb-3 text-[11px] text-[#666] leading-relaxed border-t border-[#1A1A1A] pt-2.5 -mt-0.5">
+                        {ex.note}
                       </div>
-                    </div>
+                    )}
                   </div>
-                  
-                  {isExpanded && (
-                    <div className="px-3.5 pb-3 text-[11px] text-[#666] leading-relaxed border-t border-[#1A1A1A] pt-2.5 -mt-0.5">
-                      {ex.note}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                );
+              })}
           </div>
         </div>
 
