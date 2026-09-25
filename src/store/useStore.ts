@@ -1,117 +1,83 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { format } from 'date-fns';
+import { recordSessionCompleted } from '../data/training';
+import type { SessionType, TrainingState } from '../data/training';
 
 export type ActivityEntry = {
   count: number;
-  planId?: string;
-  dayIdx?: number;
+  sessionLabel?: string;
 };
 
 export type ActivityMap = Record<string, ActivityEntry>;
 
 export type WeightLog = {
-  date: string; // "yyyy-MM-dd"
+  date: string;
   weight: number;
 };
 
 interface AppState {
-  activePlan: "3" | "4";
-  activeDay: number;
-  doneExercises: Record<string, boolean>; // key: "yyyy-MM-dd-planId-dayIdx-exIdx"
+  trainingState: TrainingState;
+  doneExercises: Record<string, boolean>;
   activityMap: ActivityMap;
   weightLogs: WeightLog[];
 
-  setActivePlan: (plan: "3" | "4") => void;
-  setActiveDay: (dayIndex: number) => void;
-  toggleExercise: (planId: string, dayIdx: number, exIdx: number, isDone: boolean) => void;
-  clearDoneForToday: () => void;
-  togglePastDate: (dateStr: string, planId?: string, dayIdx?: number) => void;
+  toggleExercise: (sessionId: string, exIdx: number, isDone: boolean) => void;
+  completeSession: (sessionType: SessionType, sessionLabel: string, exerciseCount: number) => void;
+  togglePastDate: (dateStr: string) => void;
   addWeightLog: (weight: number, dateStr?: string) => void;
   deleteWeightLog: (dateStr: string) => void;
 }
 
+const emptyTrainingState: TrainingState = {
+  nextRotationIndex: 0,
+  lastSessionDate: null,
+  lastSessionType: null,
+};
+
 export const useStore = create<AppState>()(
   persist(
     (set) => ({
-      activePlan: "4",
-      activeDay: 0,
+      trainingState: emptyTrainingState,
       doneExercises: {},
       activityMap: {},
       weightLogs: [],
 
-      setActivePlan: (plan) => set({ activePlan: plan, activeDay: 0 }),
-      
-      setActiveDay: (dayIndex) => set({ activeDay: dayIndex }),
-
-      toggleExercise: (planId, dayIdx, exIdx, isDone) => {
+      toggleExercise: (sessionId, exIdx, isDone) => {
         const dateStr = format(new Date(), 'yyyy-MM-dd');
-        const key = `${dateStr}-${planId}-${dayIdx}-${exIdx}`;
-        
-        set((state) => {
-          const newDone = { ...state.doneExercises, [key]: isDone };
-          
-          const todayCount = Object.entries(newDone).filter(
-            ([k, v]) => k.startsWith(dateStr) && v
-          ).length;
-
-          const newActivityMap = { ...state.activityMap };
-          if (todayCount === 0) {
-            delete newActivityMap[dateStr];
-          } else {
-            newActivityMap[dateStr] = {
-              count: todayCount,
-              planId,
-              dayIdx
-            };
-          }
-
-          return {
-            doneExercises: newDone,
-            activityMap: newActivityMap
-          };
-        });
+        const key = `${dateStr}-${sessionId}-${exIdx}`;
+        set((state) => ({
+          doneExercises: { ...state.doneExercises, [key]: isDone },
+        }));
       },
 
-      clearDoneForToday: () => {
+      completeSession: (sessionType, sessionLabel, exerciseCount) => {
         const dateStr = format(new Date(), 'yyyy-MM-dd');
-        set((state) => {
-          const newDone = { ...state.doneExercises };
-          for (const key in newDone) {
-            if (key.startsWith(dateStr)) {
-              delete newDone[key];
-            }
-          }
-          const newActivityMap = { ...state.activityMap };
-          delete newActivityMap[dateStr];
-
-          return { doneExercises: newDone, activityMap: newActivityMap };
-        });
+        set((state) => ({
+          trainingState: recordSessionCompleted(state.trainingState, sessionType, dateStr),
+          activityMap: {
+            ...state.activityMap,
+            [dateStr]: { count: exerciseCount, sessionLabel },
+          },
+        }));
       },
 
-      togglePastDate: (dateStr, planId, dayIdx) => {
+      togglePastDate: (dateStr) => {
         set((state) => {
-          const newMap = { ...state.activityMap };
-          const existing = newMap[dateStr];
-          
-          if (existing) {
-            delete newMap[dateStr];
+          const activityMap = { ...state.activityMap };
+          if (activityMap[dateStr]) {
+            delete activityMap[dateStr];
           } else {
-            newMap[dateStr] = {
-              count: 5,
-              planId,
-              dayIdx
-            };
+            activityMap[dateStr] = { count: 5, sessionLabel: 'Workout logged' };
           }
-          return { activityMap: newMap };
+          return { activityMap };
         });
       },
 
       addWeightLog: (weight, dateStr = format(new Date(), 'yyyy-MM-dd')) => {
         set((state) => {
-          const logs = state.weightLogs.filter(log => log.date !== dateStr);
+          const logs = state.weightLogs.filter((log) => log.date !== dateStr);
           logs.push({ date: dateStr, weight });
-          // Sort ascending by date
           logs.sort((a, b) => a.date.localeCompare(b.date));
           return { weightLogs: logs };
         });
@@ -119,25 +85,77 @@ export const useStore = create<AppState>()(
 
       deleteWeightLog: (dateStr) => {
         set((state) => ({
-          weightLogs: state.weightLogs.filter(log => log.date !== dateStr)
+          weightLogs: state.weightLogs.filter((log) => log.date !== dateStr),
         }));
-      }
+      },
     }),
     {
       name: 'liftlog-storage',
-      version: 1,
-      migrate: (persistedState: any, version) => {
-        if (version === 0) {
-          const newMap = { ...persistedState.activityMap };
-          for (const key in newMap) {
-            if (typeof newMap[key] === 'number') {
-              newMap[key] = { count: newMap[key] };
-            }
+      version: 2,
+      migrate: (persistedState, version) => {
+        const migrated = { ...(persistedState as Record<string, unknown>) };
+        delete migrated.activePlan;
+        delete migrated.activeDay;
+
+        if (version < 1 && migrated.activityMap && typeof migrated.activityMap === 'object') {
+          const activityMap = { ...migrated.activityMap as Record<string, unknown> };
+          for (const [date, entry] of Object.entries(activityMap)) {
+            if (typeof entry === 'number') activityMap[date] = { count: entry };
           }
-          return { ...persistedState, activityMap: newMap };
+          migrated.activityMap = activityMap;
         }
-        return persistedState;
-      }
-    }
-  )
+
+        if (version < 2) {
+          const savedActivities = (migrated.activityMap ?? {}) as Record<string, unknown>;
+          const activityMap: ActivityMap = {};
+          for (const [date, rawEntry] of Object.entries(savedActivities)) {
+            const entry = typeof rawEntry === 'number'
+              ? { count: rawEntry }
+              : rawEntry as { count?: number; planId?: string; dayIdx?: number };
+            activityMap[date] = {
+              count: typeof entry.count === 'number' ? entry.count : 0,
+              sessionLabel: 'Workout logged',
+            };
+          }
+
+          const latestDate = Object.keys(activityMap)
+            .filter((date) => activityMap[date].count > 0)
+            .sort()
+            .at(-1) ?? null;
+          const latestSavedActivity = latestDate ? savedActivities[latestDate] : null;
+          const latestPlanId = latestSavedActivity && typeof latestSavedActivity === 'object'
+            ? (latestSavedActivity as { planId?: string }).planId
+            : undefined;
+          const latestDayIdx = latestSavedActivity && typeof latestSavedActivity === 'object'
+            ? (latestSavedActivity as { dayIdx?: number }).dayIdx
+            : undefined;
+          const savedExerciseChecks = (migrated.doneExercises ?? {}) as Record<string, unknown>;
+          const doneExercises: Record<string, boolean> = {};
+          const sessionIdsByPlan: Record<string, string[]> = {
+            '3': ['FA', 'FB'],
+            '4': ['UA', 'LA', 'UB', 'LB'],
+          };
+          for (const [key, value] of Object.entries(savedExerciseChecks)) {
+            const match = /^(\d{4}-\d{2}-\d{2})-([34])-(\d+)-(\d+)$/.exec(key);
+            if (!match || typeof value !== 'boolean') continue;
+            const [, date, planId, dayIndex, exerciseIndex] = match;
+            const sessionId = sessionIdsByPlan[planId][Number(dayIndex)];
+            if (sessionId) doneExercises[`${date}-${sessionId}-${exerciseIndex}`] = value;
+          }
+
+          migrated.activityMap = activityMap;
+          migrated.doneExercises = doneExercises;
+          migrated.trainingState = {
+            nextRotationIndex: latestPlanId === '4' && latestDayIdx !== undefined
+              ? (latestDayIdx + 1) % 4
+              : 0,
+            lastSessionDate: latestDate,
+            lastSessionType: latestDate ? 'rotation' : null,
+          } satisfies TrainingState;
+        }
+
+        return migrated as unknown as AppState;
+      },
+    },
+  ),
 );
