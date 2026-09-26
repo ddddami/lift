@@ -7,7 +7,7 @@ import {
   isSameDay, isSameMonth, isToday, startOfMonth, startOfWeek, subDays, subMonths,
 } from 'date-fns';
 import clsx from 'clsx';
-import { ArrowUpRight, Undo2, Check, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { Dumbbell, ArrowUpRight, Undo2, Check, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
 import { getNextSession } from '../data/training';
 
@@ -56,6 +56,21 @@ export function Tracker() {
   return (
     <div className="flex h-full min-h-0 flex-col bg-white text-lift-text">
       <header className="shrink-0 bg-white px-5 pt-[max(env(safe-area-inset-top),18px)] pb-3">
+        <div className="mb-5 flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-lift-inset text-lift-text">
+              <Dumbbell className="h-[18px] w-[18px]" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="m-0 text-[24px] font-semibold tracking-tight">Progress</h1>
+              <p className="m-0 mt-0.5 text-[14px] text-lift-text-muted">Your training, over time</p>
+            </div>
+          </div>
+          <button type="button" onClick={() => setShowTotals((shown) => !shown)} aria-expanded={showTotals} aria-controls="progress-totals"
+            className="inline-flex min-h-11 items-center gap-1 px-2 text-[11px] font-medium text-lift-text-muted">
+            Totals {showTotals ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+          </button>
+        </div>
         <h2 className="mb-2 mt-0 text-[14px] font-semibold">This week</h2>
         <div className="flex justify-between gap-1.5">
           {weekDays.map((day) => {
@@ -75,13 +90,7 @@ export function Tracker() {
       </header>
 
       <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pt-2 pb-5">
-        <div className="mb-3 flex items-center justify-between">
-          <h1 className="m-0 text-[22px] font-semibold tracking-tight">Progress</h1>
-          <button type="button" onClick={() => setShowTotals((shown) => !shown)} aria-expanded={showTotals} aria-controls="progress-totals"
-            className="inline-flex min-h-11 items-center gap-1 px-2 text-[11px] font-medium text-lift-text-muted">
-            Totals {showTotals ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-          </button>
-        </div>
+
         <Link to="/" className={clsx('mb-4 flex min-h-11 items-center justify-between gap-2 rounded-2xl px-3 py-2 text-[13px] no-underline', nextType !== 'rotation' ? 'bg-lift-notice-bg text-lift-notice-text' : 'bg-lift-inset text-lift-text')}>
           <span className="min-w-0 truncate"><span className="text-lift-text-muted">{nextType !== 'rotation' ? 'Suggested' : 'Next'}</span><span className="mx-2 text-lift-text-dim">·</span><span className="font-semibold">{formatLabel(nextSession.label)}</span></span>
           <ArrowUpRight aria-hidden="true" className="h-4 w-4 shrink-0" />
