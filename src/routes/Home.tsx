@@ -101,7 +101,7 @@ export function Home() {
                 }
               }}
               aria-pressed={showFallbackQueue}
-              className={clsx('inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition-colors', gapDetected && !showFallbackQueue ? 'bg-lift-notice-bg text-lift-notice-text' : 'bg-lift-inset text-lift-text-muted')}
+              className={clsx('inline-flex min-h-8 items-center gap-1 rounded-full px-2.5 text-[11px] font-semibold transition-colors', gapDetected && !showFallbackQueue ? 'bg-lift-notice-bg text-lift-notice-text' : 'bg-lift-inset text-lift-text-muted')}
             >
               {showFallbackQueue ? 'Rotation' : gapDetected ? 'Fallback ready' : 'Fallbacks'}
               <ArrowLeftRight className="h-3.5 w-3.5" />
@@ -158,7 +158,7 @@ export function Home() {
             <p className="m-0 truncate text-[13px] text-lift-text-muted">{focusName(session.tag)}</p>
           </div>
           {isPreview ? (
-            <button onClick={() => setSelectedSessionId(null)} className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-full bg-lift-inset px-2.5 text-[11px] font-medium text-lift-text-muted">
+            <button onClick={() => setSelectedSessionId(null)} className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-xl bg-lift-inset px-2 text-[11px] font-medium text-lift-text-muted">
               <RotateCcw className="h-3 w-3" /> Up next
             </button>
           ) : doneToday ? (
