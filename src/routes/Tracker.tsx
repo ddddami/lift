@@ -80,8 +80,8 @@ export function Tracker() {
         <div className="mb-2 flex items-center justify-between">
           <h2 className="m-0 text-[14px] font-semibold">This week</h2>
           <button type="button" onClick={() => setShowTotals((shown) => !shown)} aria-expanded={showTotals} aria-controls="progress-totals"
-            className="inline-flex min-h-8 items-center gap-1 px-1 text-[11px] font-medium text-lift-text-muted">
-            Totals {showTotals ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            className="inline-flex min-h-8 items-center gap-1 px-1 text-[11px] font-semibold text-lift-text">
+            Totals {showTotals ? <ChevronUp className="h-3.5 w-3.5" strokeWidth={2.2} /> : <ChevronDown className="h-3.5 w-3.5" strokeWidth={2.2} />}
           </button>
         </div>
         <div className="flex justify-between gap-1.5">
