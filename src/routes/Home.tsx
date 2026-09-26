@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import { Link } from '@tanstack/react-router';
 import { Activity, ArrowLeftRight, Check, ChevronDown, ChevronUp, Dumbbell, Flame, Info, RotateCcw, X } from 'lucide-react';
@@ -9,6 +9,7 @@ import { GAP_THRESHOLD_DAYS, getNextSession } from '../data/training';
 import { useStore } from '../store/useStore';
 
 const fallbackSessions = [fallbackA, fallbackB];
+const QUEUE_MORPH_SCROLL_DISTANCE = 84;
 
 export function Home() {
   const { trainingState, rotationCompleted, doneExercises, activityMap, toggleExercise, completeSession } = useStore();
@@ -17,8 +18,16 @@ export function Home() {
   const [showGuidelines, setShowGuidelines] = useState(false);
   const [showFallbackQueue, setShowFallbackQueue] = useState(false);
   const [queueCollapsed, setQueueCollapsed] = useState(false);
+  const [overviewHeight, setOverviewHeight] = useState(0);
+  const [overviewOffset, setOverviewOffset] = useState(0);
   const queueCollapsedRef = useRef(queueCollapsed);
-  const workoutScrollerRef = useRef<HTMLElement | null>(null);
+  const overviewHeightRef = useRef(0);
+  const overviewOffsetRef = useRef(0);
+  const pendingExerciseScrollRef = useRef(0);
+  const overviewRef = useRef<HTMLDivElement | null>(null);
+  const workoutGestureSurfaceRef = useRef<HTMLDivElement | null>(null);
+  const workoutViewportRef = useRef<HTMLElement | null>(null);
+  const exerciseScrollerRef = useRef<HTMLElement | null>(null);
 
   const today = new Date();
   const dateKey = format(today, 'yyyy-MM-dd');
@@ -40,15 +49,55 @@ export function Home() {
   const gapDetected = daysSinceLast !== null && daysSinceLast > GAP_THRESHOLD_DAYS;
   const fallbackType = recommended.type === 'rotation' ? null : recommended.type;
 
-  useEffect(() => {
-    const scroller = workoutScrollerRef.current;
-    if (!scroller) return;
-    scroller.scrollTop = 0;
+  const selectSession = (id: string | null) => {
+    setSelectedSessionId(id);
+    overviewOffsetRef.current = 0;
+    pendingExerciseScrollRef.current = 0;
+    setOverviewOffset(0);
+    if (exerciseScrollerRef.current) exerciseScrollerRef.current.scrollTop = 0;
+  };
 
+  useLayoutEffect(() => {
+    const overview = overviewRef.current;
+    if (!overview) return;
+
+    const updateHeight = () => {
+      const height = overview.offsetHeight;
+      overviewHeightRef.current = height;
+      setOverviewHeight(height);
+      const offset = Math.min(overviewOffsetRef.current, height);
+      overviewOffsetRef.current = offset;
+      setOverviewOffset(offset);
+    };
+
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(overview);
+    updateHeight();
+    return () => observer.disconnect();
+  }, []);
+
+  useLayoutEffect(() => {
+    const exercises = exerciseScrollerRef.current;
+    if (!exercises || overviewHeight === 0 || overviewOffset < overviewHeight - 0.5) return;
+    if (pendingExerciseScrollRef.current > 0) {
+      exercises.scrollTop += pendingExerciseScrollRef.current;
+      pendingExerciseScrollRef.current = 0;
+    }
+  }, [overviewHeight, overviewOffset]);
+
+  useEffect(() => {
+    if (showGuidelines) return;
+    const gestureSurface = workoutGestureSurfaceRef.current;
+    if (!gestureSurface) return;
+    let touchLastY = 0;
+    let touchStartedExpanded = !queueCollapsedRef.current;
     let touchStartY = 0;
-    let touchStartScrollTop = 0;
-    let touchTransitioned = false;
-    let wheelTransitionLocked = false;
+    let touchContentTravel = 0;
+    let touchHasMovedVertically = false;
+    let wheelActive = false;
+    let wheelStartedExpanded = false;
+    let wheelContentTravel = 0;
+    let wheelAppliedContentTravel = 0;
     let wheelUnlockTimer: ReturnType<typeof setTimeout> | undefined;
 
     const setCollapsed = (collapsed: boolean) => {
@@ -56,81 +105,129 @@ export function Home() {
       setQueueCollapsed(collapsed);
     };
 
+    const setOverview = (offset: number) => {
+      const bounded = Math.max(0, Math.min(offset, overviewHeightRef.current));
+      overviewOffsetRef.current = bounded;
+      setOverviewOffset(bounded);
+    };
+
+    const consumeContentScroll = (deltaY: number) => {
+      if (deltaY > 0) {
+        let remaining = deltaY;
+        if (remaining > 0 && overviewOffsetRef.current < overviewHeightRef.current) {
+          const consumed = Math.min(remaining, overviewHeightRef.current - overviewOffsetRef.current);
+          setOverview(overviewOffsetRef.current + consumed);
+          remaining -= consumed;
+        }
+
+        if (remaining > 0 && exerciseScrollerRef.current) {
+          if (overviewOffsetRef.current >= overviewHeightRef.current - 0.5) {
+            exerciseScrollerRef.current.scrollTop += remaining;
+          } else {
+            pendingExerciseScrollRef.current += remaining;
+          }
+        }
+        return;
+      }
+
+      let remaining = -deltaY;
+      const exercises = exerciseScrollerRef.current;
+      const exerciseOffset = (exercises?.scrollTop ?? 0) + pendingExerciseScrollRef.current;
+      if (exercises && exerciseOffset > 0) {
+        const consumed = Math.min(remaining, exerciseOffset);
+        const nextOffset = exerciseOffset - consumed;
+        exercises.scrollTop = Math.min(exercises.scrollTop, nextOffset);
+        pendingExerciseScrollRef.current = Math.max(0, nextOffset - exercises.scrollTop);
+        remaining -= consumed;
+      }
+
+      if (remaining > 0 && overviewOffsetRef.current > 0) {
+        const consumed = Math.min(remaining, overviewOffsetRef.current);
+        setOverview(overviewOffsetRef.current - consumed);
+        remaining -= consumed;
+      }
+
+      if (remaining > 0 && queueCollapsedRef.current) setCollapsed(false);
+    };
+
     const onTouchStart = (event: TouchEvent) => {
       if (event.touches.length !== 1) return;
-      touchStartY = event.touches[0].clientY;
-      touchStartScrollTop = scroller.scrollTop;
-      touchTransitioned = false;
+      touchLastY = event.touches[0].clientY;
+      touchStartY = touchLastY;
+      touchStartedExpanded = !queueCollapsedRef.current;
+      touchContentTravel = 0;
+      touchHasMovedVertically = false;
     };
 
     const onTouchMove = (event: TouchEvent) => {
-      if (touchTransitioned) {
-        event.preventDefault();
-        return;
-      }
       if (event.touches.length !== 1) return;
-      const deltaY = touchStartY - event.touches[0].clientY;
-      if (Math.abs(deltaY) < 10) return;
-
-      const shouldCollapse = !queueCollapsedRef.current && deltaY > 0;
-      const shouldExpand = queueCollapsedRef.current && touchStartScrollTop <= 1 && deltaY < 0;
-      if (!shouldCollapse && !shouldExpand) return;
-
+      const currentY = event.touches[0].clientY;
+      if (!touchHasMovedVertically && Math.abs(touchStartY - currentY) < 6) return;
+      touchHasMovedVertically = true;
+      const deltaY = touchLastY - currentY;
+      touchLastY = currentY;
+      if (Math.abs(deltaY) < 0.5) return;
       event.preventDefault();
-      touchTransitioned = true;
-      if (shouldCollapse) scroller.scrollTop = 0;
-      setCollapsed(shouldCollapse);
+
+      if (touchStartedExpanded) {
+        const travel = touchStartY - currentY;
+        const nextContentTravel = Math.max(0, travel - QUEUE_MORPH_SCROLL_DISTANCE);
+        setCollapsed(travel > 4);
+        consumeContentScroll(nextContentTravel - touchContentTravel);
+        touchContentTravel = nextContentTravel;
+      } else {
+        consumeContentScroll(deltaY);
+      }
     };
 
     const onWheel = (event: WheelEvent) => {
-      if (wheelTransitionLocked) {
-        event.preventDefault();
-        if (wheelUnlockTimer) clearTimeout(wheelUnlockTimer);
-        wheelUnlockTimer = setTimeout(() => { wheelTransitionLocked = false; }, 180);
-        return;
-      }
-
-      const shouldCollapse = !queueCollapsedRef.current && event.deltaY > 0;
-      const shouldExpand = queueCollapsedRef.current && scroller.scrollTop <= 1 && event.deltaY < 0;
-      if (!shouldCollapse && !shouldExpand) return;
-
+      const deltaY = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? event.deltaY * 16
+        : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? event.deltaY * window.innerHeight
+          : event.deltaY;
       event.preventDefault();
-      if (shouldCollapse) scroller.scrollTop = 0;
-      setCollapsed(shouldCollapse);
-      wheelTransitionLocked = true;
-      wheelUnlockTimer = setTimeout(() => { wheelTransitionLocked = false; }, 180);
-    };
 
-    const onScroll = () => {
-      if (!queueCollapsedRef.current && scroller.scrollTop > 0) {
-        scroller.scrollTop = 0;
-        setCollapsed(true);
+      if (!wheelActive) {
+        wheelActive = true;
+        wheelStartedExpanded = !queueCollapsedRef.current;
+        wheelContentTravel = 0;
+        wheelAppliedContentTravel = 0;
       }
+
+      if (wheelStartedExpanded) {
+        wheelContentTravel += deltaY;
+        const nextContentTravel = Math.max(0, wheelContentTravel - QUEUE_MORPH_SCROLL_DISTANCE);
+        setCollapsed(wheelContentTravel > 4);
+        consumeContentScroll(nextContentTravel - wheelAppliedContentTravel);
+        wheelAppliedContentTravel = nextContentTravel;
+      } else {
+        consumeContentScroll(deltaY);
+      }
+
+      if (wheelUnlockTimer) clearTimeout(wheelUnlockTimer);
+      wheelUnlockTimer = setTimeout(() => { wheelActive = false; }, 180);
     };
 
-    scroller.addEventListener('touchstart', onTouchStart, { passive: true });
-    scroller.addEventListener('touchmove', onTouchMove, { passive: false });
-    scroller.addEventListener('wheel', onWheel, { passive: false });
-    scroller.addEventListener('scroll', onScroll, { passive: true });
+    gestureSurface.addEventListener('touchstart', onTouchStart, { passive: true });
+    gestureSurface.addEventListener('touchmove', onTouchMove, { passive: false });
+    gestureSurface.addEventListener('wheel', onWheel, { passive: false });
 
     return () => {
-      scroller.removeEventListener('touchstart', onTouchStart);
-      scroller.removeEventListener('touchmove', onTouchMove);
-      scroller.removeEventListener('wheel', onWheel);
-      scroller.removeEventListener('scroll', onScroll);
+      gestureSurface.removeEventListener('touchstart', onTouchStart);
+      gestureSurface.removeEventListener('touchmove', onTouchMove);
+      gestureSurface.removeEventListener('wheel', onWheel);
       if (wheelUnlockTimer) clearTimeout(wheelUnlockTimer);
     };
-  }, [session.id]);
+  }, [showGuidelines]);
 
   const openFallbackQueue = () => {
     setShowFallbackQueue(true);
-    setSelectedSessionId(recommended.type === 'rotation' ? proactiveFallback.id : recommended.session.id);
+    selectSession(recommended.type === 'rotation' ? proactiveFallback.id : recommended.session.id);
   };
 
   const toggleQueue = () => {
     if (showFallbackQueue) {
       setShowFallbackQueue(false);
-      setSelectedSessionId(null);
+      selectSession(null);
     } else {
       openFallbackQueue();
     }
@@ -142,7 +239,7 @@ export function Home() {
       ? session.id === fallbackA.id ? 'fallbackA' : 'fallbackB'
       : recommended.type;
     completeSession(sessionType, session.id, session.label, session.exercises.length);
-    setSelectedSessionId(null);
+    selectSession(null);
     setExpandedExercise(null);
   };
 
@@ -160,7 +257,7 @@ export function Home() {
   };
 
   return (
-    <div className="flex h-full flex-col bg-white text-lift-text">
+    <div ref={workoutGestureSurfaceRef} className="flex h-full flex-col bg-white text-lift-text">
       <div className={clsx(
         'shrink-0 overflow-hidden bg-white px-5 transition-[max-height,padding,box-shadow] duration-250 ease-out motion-reduce:transition-none',
         queueCollapsed ? 'max-h-[220px] pb-2 shadow-[0_8px_18px_rgba(18,24,20,0.06)]' : 'max-h-[360px]',
@@ -214,7 +311,7 @@ export function Home() {
                     const selected = session.id === item.id;
                     const status = getFallbackStatus(item);
                     return (
-                      <button key={item.id} onClick={() => setSelectedSessionId(item.id)} aria-pressed={selected} aria-label={`Fallback ${item.id === 'FA' ? 'A' : 'B'}, ${status}`}
+                      <button key={item.id} onClick={() => selectSession(item.id)} aria-pressed={selected} aria-label={`Fallback ${item.id === 'FA' ? 'A' : 'B'}, ${status}`}
                         className={clsx('flex min-w-0 text-left transition-[height,padding,border-radius,background-color,color] duration-200 ease-out motion-reduce:transition-none', queueCollapsed ? 'h-9 items-center justify-center rounded-xl px-2' : 'h-[66px] flex-col items-start justify-between rounded-2xl px-3 py-2.5', selected ? 'bg-lift-text text-white shadow-sm' : 'bg-transparent text-lift-text')}>
                         <span className={clsx('font-semibold', queueCollapsed ? 'text-xs' : 'text-[13px]')}>{queueCollapsed ? item.id : `Fallback ${item.id === 'FA' ? 'A' : 'B'}`}</span>
                         {!queueCollapsed && <span className={clsx('text-[11px] font-medium', selected ? 'text-white/70' : status === 'Suggested' ? 'text-lift-success-text' : 'text-lift-text-dim')}>{status}</span>}
@@ -234,7 +331,7 @@ export function Home() {
                   const isSelected = session.id === item.id;
                   const isDone = status === 'Done';
                   return (
-                    <button key={item.id} onClick={() => setSelectedSessionId(item.id === recommended.session.id ? null : item.id)} aria-pressed={isSelected} aria-label={`${sessionName(item.label)}, ${status}`}
+                    <button key={item.id} onClick={() => selectSession(item.id === recommended.session.id ? null : item.id)} aria-pressed={isSelected} aria-label={`${sessionName(item.label)}, ${status}`}
                       className={clsx('flex min-w-0 text-left transition-[height,padding,border-radius,background-color,color] duration-200 ease-out motion-reduce:transition-none', queueCollapsed ? 'h-9 items-center justify-center rounded-xl px-1.5' : 'h-[74px] flex-col items-start justify-between rounded-2xl px-2.5 py-2.5', isSelected ? 'bg-lift-text text-white shadow-sm' : 'bg-transparent text-lift-text')}>
                       <span className={clsx('inline-flex items-center justify-center font-semibold transition-[height,width,border-radius,background-color,color] duration-200 ease-out motion-reduce:transition-none', queueCollapsed ? 'h-auto w-auto rounded-none text-xs' : 'h-[21px] w-[21px] rounded-full text-[11px]', isDone ? 'bg-lift-accent-3 text-white' : isSelected ? 'bg-white/15 text-white' : 'bg-white text-lift-text-muted')}>
                         {queueCollapsed ? item.id : isDone ? <Check className="h-3 w-3" strokeWidth={2.5} /> : `0${index + 1}`}
@@ -252,32 +349,39 @@ export function Home() {
         </section>
       </div>
 
-      <main ref={workoutScrollerRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-8 pt-4">
+      <main ref={workoutViewportRef} className="relative min-h-0 flex-1 overflow-hidden">
+        <div ref={overviewRef} style={{ transform: `translateY(-${overviewOffset}px)` }} className="absolute left-5 right-5 top-0 flex flex-col pt-4">
+          {gapDetected && (
+            <div role="status" className="mb-4 flex items-center justify-between gap-3 rounded-2xl bg-lift-notice-bg px-4 py-3 text-[13px] leading-snug text-lift-notice-text">
+              <span>{daysSinceLast} days since your last session. A fallback is ready if useful.</span>
+              {!showFallbackQueue && <button onClick={openFallbackQueue} className="shrink-0 rounded-full bg-white/70 px-3 py-2 text-xs font-semibold">View</button>}
+            </div>
+          )}
 
-        {gapDetected && (
-          <div role="status" className="mb-4 flex items-center justify-between gap-3 rounded-2xl bg-lift-notice-bg px-4 py-3 text-[13px] leading-snug text-lift-notice-text">
-            <span>{daysSinceLast} days since your last session. A fallback is ready if useful.</span>
-            {!showFallbackQueue && <button onClick={openFallbackQueue} className="shrink-0 rounded-full bg-white/70 px-3 py-2 text-xs font-semibold">View</button>}
-          </div>
-        )}
+          <section className="mb-3 flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-baseline gap-2">
+              <h1 className="m-0 shrink-0 text-[21px] font-semibold leading-tight tracking-tight">{sessionName(session.label)}</h1>
+              <p className="m-0 truncate text-[13px] text-lift-text-muted">{focusName(session.tag)}</p>
+            </div>
+            {isPreview ? (
+              <button onClick={() => selectSession(null)} className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-full bg-lift-inset px-2 text-[11px] font-medium text-lift-text-muted">
+                <RotateCcw className="h-3 w-3" /> Up next
+              </button>
+            ) : doneToday ? (
+              <span className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-lift-success-bg px-3 py-2 text-xs font-semibold text-lift-success-text"><Check className="h-3.5 w-3.5" /> Done today</span>
+            ) : null}
+          </section>
+          <p className="mb-4 mt-0 text-[14px] leading-relaxed text-lift-text-muted">{session.keyFocus}</p>
+        </div>
 
-        <section className="mb-3 flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-baseline gap-2">
-            <h1 className="m-0 shrink-0 text-[21px] font-semibold leading-tight tracking-tight">{sessionName(session.label)}</h1>
-            <p className="m-0 truncate text-[13px] text-lift-text-muted">{focusName(session.tag)}</p>
-          </div>
-          {isPreview ? (
-            <button onClick={() => setSelectedSessionId(null)} className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-full bg-lift-inset px-2 text-[11px] font-medium text-lift-text-muted">
-              <RotateCcw className="h-3 w-3" /> Up next
-            </button>
-          ) : doneToday ? (
-            <span className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-lift-success-bg px-3 py-2 text-xs font-semibold text-lift-success-text"><Check className="h-3.5 w-3.5" /> Done today</span>
-          ) : null}
-        </section>
-        <p className="mb-4 mt-0 text-[14px] leading-relaxed text-lift-text-muted">{session.keyFocus}</p>
-
-        <section aria-label={`${sessionName(session.label)} exercises`} className="overflow-hidden rounded-[22px] bg-lift-inset">
-          {session.exercises.map((exercise, index) => {
+        <section
+          ref={exerciseScrollerRef}
+          aria-label={`${sessionName(session.label)} exercises`}
+          style={{ top: Math.max(0, overviewHeight - overviewOffset) }}
+          className={clsx('absolute left-5 right-5 bottom-[70px] overscroll-contain', overviewHeight > 0 && overviewOffset >= overviewHeight - 0.5 ? 'overflow-y-auto' : 'overflow-hidden')}
+        >
+          <div className="overflow-hidden rounded-[22px] bg-lift-inset">
+            {session.exercises.map((exercise, index) => {
             const key = `${session.id}-${index}`;
             const isDone = !!doneExercises[`${dateKey}-${key}`];
             const isExpanded = expandedExercise === key;
@@ -299,11 +403,12 @@ export function Home() {
                 {isExpanded && <p className="m-0 border-t border-lift-border pb-4 pt-3 text-[13px] leading-relaxed text-lift-text-muted">{exercise.note}</p>}
               </article>
             );
-          })}
+            })}
+          </div>
         </section>
 
         <button onClick={completeCurrentSession} disabled={isPreview || doneToday}
-          className={clsx('mt-4 flex h-[54px] w-full items-center justify-center rounded-2xl text-[15px] font-semibold transition-colors', isPreview || doneToday ? 'bg-lift-inset text-lift-text-dim' : 'bg-lift-text text-white active:bg-[#2E2E33]')}>
+          className={clsx('absolute bottom-3 left-5 right-5 flex h-[54px] items-center justify-center rounded-2xl text-[15px] font-semibold transition-colors', isPreview || doneToday ? 'bg-lift-inset text-lift-text-dim' : 'bg-lift-text text-white active:bg-[#2E2E33]')}>
           {isPreview ? 'Preview' : doneToday ? 'Session completed' : 'Complete session'}
         </button>
       </main>
