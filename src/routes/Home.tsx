@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { Link } from '@tanstack/react-router';
-import { Activity, Check, ChevronDown, ChevronUp, Dumbbell, Info, RotateCcw, X } from 'lucide-react';
+import { Activity, Check, ChevronDown, ChevronUp, Dumbbell, Flame, Info, RotateCcw, X } from 'lucide-react';
 import clsx from 'clsx';
 import { fallbackA, fallbackB, overloadRules, rotation } from '../data/plans';
 import type { TrainingSession } from '../data/plans';
@@ -9,9 +9,10 @@ import { GAP_THRESHOLD_DAYS, getNextSession } from '../data/training';
 import { useStore } from '../store/useStore';
 
 const catchUpSessions = [fallbackA, fallbackB];
+const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export function Home() {
-  const { trainingState, rotationCompleted, doneExercises, toggleExercise, completeSession } = useStore();
+  const { trainingState, rotationCompleted, doneExercises, activityMap, toggleExercise, completeSession } = useStore();
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [expandedExercise, setExpandedExercise] = useState<string | null>(null);
   const [showGuidelines, setShowGuidelines] = useState(false);
@@ -24,6 +25,9 @@ export function Home() {
     : undefined;
   const session = inspectedSession ?? recommended.session;
   const isPreview = selectedSessionId !== null && session.id !== recommended.session.id;
+  const doneToday = trainingState.lastSessionDate === dateKey;
+  const recentDates = Object.entries(activityMap).filter(([, entry]) => entry?.count > 0).map(([date]) => date).sort();
+  const sessionRun = getCurrentSessionRun(recentDates, today);
   const daysSinceLast = trainingState.lastSessionDate
     ? Math.floor((Date.parse(`${dateKey}T00:00:00Z`) - Date.parse(`${trainingState.lastSessionDate}T00:00:00Z`)) / 86_400_000)
     : null;
@@ -31,255 +35,218 @@ export function Home() {
   const catchUpType = recommended.type === 'rotation' ? null : recommended.type;
 
   const completeCurrentSession = () => {
-    if (isPreview) return;
+    if (isPreview || doneToday) return;
     completeSession(recommended.type, session.id, session.label, session.exercises.length);
     setSelectedSessionId(null);
     setExpandedExercise(null);
   };
 
   const getRotationStatus = (item: TrainingSession, index: number) => {
-    if (recommended.type === 'rotation' && recommended.session.id === item.id) return 'UP NEXT';
-    if (recommended.type !== 'rotation' && trainingState.nextRotationIndex === index) return 'AFTER CATCH-UP';
-    if (rotationCompleted.includes(item.id)) return 'DONE';
-    return 'IN QUEUE';
+    if (recommended.type === 'rotation' && recommended.session.id === item.id) return 'Next';
+    if (recommended.type !== 'rotation' && trainingState.nextRotationIndex === index) return 'Then';
+    if (rotationCompleted.includes(item.id)) return 'Done';
+    return 'Queued';
   };
 
   const getCatchUpStatus = (item: TrainingSession) => {
-    if (recommended.session.id === item.id && catchUpType) return 'RECOMMENDED';
-    if (gapDetected && trainingState.lastSessionType === 'fallbackA' && item.id === fallbackB.id) return 'NEXT IF NEEDED';
-    return 'AVAILABLE';
+    if (recommended.session.id === item.id && catchUpType) return 'Suggested';
+    if (gapDetected && trainingState.lastSessionType === 'fallbackA' && item.id === fallbackB.id) return 'Next if needed';
+    return 'Available';
   };
 
   return (
-    <div className="flex flex-col h-full bg-lift-bg text-lift-text">
-      <header className="shrink-0 bg-lift-bg px-4 pt-6 pb-3">
-        <div className="flex items-center justify-between mb-5">
+    <div className="flex h-full flex-col bg-white text-lift-text">
+      <main className="flex-1 overflow-y-auto overscroll-contain px-5 pt-[max(env(safe-area-inset-top),18px)] pb-8">
+        <header className="mb-5 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <Dumbbell className="w-5 h-5 text-lift-accent-3" strokeWidth={2.4} />
-            <span className="text-sm font-semibold tracking-tight">Lift Log</span>
+            <Dumbbell className="h-[21px] w-[21px] text-lift-text" strokeWidth={2.2} />
+            <span className="text-[19px] font-semibold tracking-tight">Lift Log</span>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowGuidelines(true)}
-              aria-label="Program guidelines"
-              className="h-9 w-9 rounded-full bg-white border border-lift-border text-lift-text-muted inline-flex items-center justify-center"
-            >
-              <Info className="w-4 h-4" />
+            <div aria-label={`${sessionRun} session run; sessions up to ${GAP_THRESHOLD_DAYS} days apart`} className="flex h-9 items-center gap-1.5 rounded-full bg-lift-inset px-3 text-sm font-semibold text-lift-text">
+              <Flame className="h-4 w-4 text-lift-accent-orange" fill="currentColor" strokeWidth={1.7} />
+              <span>{sessionRun}</span>
+            </div>
+            <button onClick={() => setShowGuidelines(true)} aria-label="Program guidelines" className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-lift-inset text-lift-text-muted">
+              <Info className="h-[17px] w-[17px]" strokeWidth={1.8} />
             </button>
-            <Link
-              to="/body"
-              aria-label="Body tracking"
-              className="h-9 w-9 rounded-full bg-white border border-lift-border text-lift-text-muted inline-flex items-center justify-center"
-            >
-              <Activity className="w-4 h-4" />
+            <Link to="/body" aria-label="Body tracking" className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-lift-inset text-lift-text-muted">
+              <Activity className="h-[17px] w-[17px]" strokeWidth={1.8} />
             </Link>
           </div>
-        </div>
+        </header>
 
-        <section aria-label="Training queue" className="rounded-2xl bg-white border border-lift-border p-3.5 shadow-sm">
-          <div className="flex items-baseline justify-between px-0.5 mb-3">
-            <h1 className="text-[11px] font-bold tracking-[0.12em] uppercase text-lift-text-muted">Rotation queue</h1>
-            <span className="text-[10px] text-lift-text-dim">4 sessions · repeats</span>
+        <section className="mb-6" aria-label="This week">
+          <div className="mb-2.5 flex items-center justify-between">
+            <h2 className="m-0 text-[15px] font-semibold">This week</h2>
+            <span className="text-xs text-lift-text-muted">{sessionRun} session{sessionRun === 1 ? '' : 's'} in this run</span>
           </div>
-          <div className="flex gap-2.5 overflow-x-auto hide-scrollbar snap-x snap-mandatory -mx-1 px-1 pb-1">
+          <div className="grid grid-cols-7 gap-1.5">
+            {Array.from({ length: 7 }, (_, index) => {
+              const day = new Date(today);
+              day.setDate(today.getDate() - today.getDay() + index);
+              const key = format(day, 'yyyy-MM-dd');
+              const hasSession = (activityMap[key]?.count ?? 0) > 0;
+              const isToday = key === dateKey;
+              return (
+                <div key={key} className={clsx('flex flex-col items-center rounded-2xl py-2', isToday && 'bg-lift-text text-white')}>
+                  <span className={clsx('text-[11px] font-medium', isToday ? 'text-white/70' : 'text-lift-text-dim')}>{weekdays[index]}</span>
+                  <span className={clsx('mt-1 inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold', hasSession ? 'bg-lift-accent-3 text-white' : isToday ? 'border border-white/50 text-white' : 'text-lift-text')}>
+                    {hasSession ? <Check className="h-3.5 w-3.5" strokeWidth={2.5} /> : format(day, 'd')}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="mb-6" aria-label="Training rotation">
+          <div className="mb-2.5 flex items-baseline justify-between">
+            <h2 className="m-0 text-[15px] font-semibold">Rotation</h2>
+            <span className="text-xs text-lift-text-muted">Four sessions · repeats</span>
+          </div>
+          <div className="grid grid-cols-4 gap-1.5 rounded-[20px] bg-lift-inset p-1.5">
             {rotation.map((item, index) => {
               const status = getRotationStatus(item, index);
               const isSelected = session.id === item.id;
-              const isNext = status === 'UP NEXT' || status === 'AFTER CATCH-UP';
-
+              const isDone = status === 'Done';
               return (
-                <button
-                  key={item.id}
-                  onClick={() => setSelectedSessionId(item.id === recommended.session.id ? null : item.id)}
-                  aria-pressed={isSelected}
-                  className={clsx(
-                    'snap-start shrink-0 w-[108px] min-h-[86px] rounded-xl border p-2.5 text-left transition-colors',
-                    isSelected ? 'border-lift-accent-3 bg-lift-accent-3-bg' : 'border-lift-border bg-lift-bg hover:border-[#B8C9BE]',
-                  )}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] font-semibold text-lift-text-dim">0{index + 1}</span>
-                    {status === 'DONE' && <Check className="w-3.5 h-3.5 text-lift-accent-3" strokeWidth={2.5} />}
-                    {isNext && <span className="w-1.5 h-1.5 rounded-full bg-lift-accent-3" />}
-                  </div>
-                  <div className="text-[11px] font-bold tracking-tight text-lift-text">{item.label}</div>
-                  <div className={clsx(
-                    'text-[8px] font-semibold tracking-[0.08em] mt-1.5 whitespace-nowrap',
-                    isNext ? 'text-lift-accent-3' : status === 'DONE' ? 'text-lift-text-dim' : 'text-lift-text-dim',
-                  )}>
+                <button key={item.id} onClick={() => setSelectedSessionId(item.id === recommended.session.id ? null : item.id)} aria-pressed={isSelected}
+                  className={clsx('flex min-h-[74px] min-w-0 flex-col items-start justify-between rounded-2xl px-2.5 py-2.5 text-left transition-colors', isSelected ? 'bg-lift-text text-white shadow-sm' : 'bg-transparent text-lift-text')}>
+                  <span className={clsx('inline-flex h-[21px] w-[21px] items-center justify-center rounded-full text-[11px] font-semibold', isDone ? 'bg-lift-accent-3 text-white' : isSelected ? 'bg-white/15 text-white' : 'bg-white text-lift-text-muted')}>
+                    {isDone ? <Check className="h-3 w-3" strokeWidth={2.5} /> : `0${index + 1}`}
+                  </span>
+                  <span className="block w-full truncate text-[12px] font-semibold">{sessionName(item.label)}</span>
+                  <span className={clsx('text-[11px] font-medium', isSelected ? 'text-white/70' : isDone ? 'text-lift-success-text' : 'text-lift-text-dim')}>
                     {status}
-                  </div>
+                  </span>
                 </button>
               );
             })}
           </div>
 
-          <div className="border-t border-lift-border mt-3 pt-3">
-            <div className="flex items-center justify-between mb-2.5">
-              <div>
-                <div className="text-[10px] font-semibold text-lift-text">Catch-up sessions</div>
-                <div className="text-[9px] text-lift-text-dim mt-0.5">Suggested after a gap over {GAP_THRESHOLD_DAYS} days</div>
-              </div>
-              {gapDetected && (
-                <span className="text-[9px] font-semibold text-lift-accent-3 bg-lift-accent-3-bg rounded-full px-2 py-1">READY</span>
-              )}
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {catchUpSessions.map((item) => {
-                const isSelected = session.id === item.id;
-                const status = getCatchUpStatus(item);
-                const isRecommended = status === 'RECOMMENDED';
-
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => setSelectedSessionId(item.id === recommended.session.id ? null : item.id)}
-                    aria-pressed={isSelected}
-                    className={clsx(
-                      'rounded-xl border px-2.5 py-2 text-left transition-colors',
-                      isSelected ? 'border-lift-accent-3 bg-lift-accent-3-bg' : 'border-lift-border bg-lift-bg hover:border-[#B8C9BE]',
-                    )}
-                  >
-                    <div className="flex items-center justify-between gap-1">
-                      <span className="text-[10px] font-semibold text-lift-text">Catch-up {item.id === 'FA' ? 'A' : 'B'}</span>
-                      {isRecommended && <span className="w-1.5 h-1.5 rounded-full bg-lift-accent-3" />}
-                    </div>
-                    <div className={clsx('text-[8px] mt-1 font-semibold tracking-wide', isRecommended ? 'text-lift-accent-3' : 'text-lift-text-dim')}>
-                      {status}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+          <div className="mt-4 flex items-center justify-between">
+            <h3 className="m-0 text-[14px] font-semibold">Catch-up</h3>
+            <span className="text-xs text-lift-text-muted">After {GAP_THRESHOLD_DAYS} days</span>
+          </div>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            {catchUpSessions.map((item) => {
+              const selected = session.id === item.id;
+              const status = getCatchUpStatus(item);
+              const suggested = status === 'Suggested';
+              return (
+                <button key={item.id} onClick={() => setSelectedSessionId(item.id === recommended.session.id ? null : item.id)} aria-pressed={selected}
+                  className={clsx('flex min-h-[58px] items-center justify-between rounded-2xl px-3.5 py-2.5 text-left transition-colors', selected ? 'bg-lift-text text-white' : 'bg-lift-inset text-lift-text')}>
+                  <span>
+                    <span className="block text-[13px] font-semibold">Catch-up {item.id === 'FA' ? 'A' : 'B'}</span>
+                    <span className={clsx('mt-0.5 block text-[11px]', selected ? 'text-white/70' : suggested ? 'text-lift-success-text' : 'text-lift-text-muted')}>{status}</span>
+                  </span>
+                  {suggested && <span className={clsx('h-2 w-2 rounded-full', selected ? 'bg-lift-accent-3' : 'bg-lift-accent-3')} />}
+                </button>
+              );
+            })}
           </div>
         </section>
 
         {gapDetected && (
-          <div role="status" className="mt-3 rounded-xl border border-lift-accent-3-border bg-lift-accent-3-bg px-3.5 py-2.5 flex items-center justify-between gap-3">
-            <div className="text-[10px] leading-relaxed text-lift-text-muted">
-              {daysSinceLast} days since your last session. <span className="font-semibold text-lift-text">Catch-up {recommended.session.id === 'FA' ? 'A' : 'B'} is next.</span>
-            </div>
-            <button
-              onClick={() => setSelectedSessionId(null)}
-              className="shrink-0 text-[9px] font-bold tracking-wide text-lift-accent-3 bg-transparent border-none p-0"
-            >
-              VIEW
-            </button>
+          <div role="status" className="mb-4 rounded-2xl bg-lift-notice-bg px-4 py-3 text-[13px] leading-snug text-lift-notice-text">
+            It’s been {daysSinceLast} days since your last session. A catch-up workout is ready when you are.
           </div>
         )}
-      </header>
 
-      <main className="flex-1 overflow-y-auto overscroll-contain px-4 pb-8 pt-1">
-        <section className="pt-2 pb-3">
-          <div className="flex items-center justify-between gap-2 mb-1.5">
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-semibold tracking-tight text-lift-text">{session.label}</h2>
-              {isPreview && <span className="rounded-full bg-[#EEF0ED] px-2 py-1 text-[8px] font-semibold tracking-wider text-lift-text-muted">PREVIEW</span>}
-            </div>
-            {!isPreview && <span className="text-[9px] font-semibold tracking-[0.1em] text-lift-accent-3">{recommended.type === 'rotation' ? 'UP NEXT' : 'CATCH-UP'}</span>}
+        <section className="mb-3 flex items-start justify-between gap-3">
+          <div>
+            <h1 className="m-0 text-[24px] font-semibold leading-tight tracking-tight">{sessionName(session.label)}</h1>
+            <p className="m-0 mt-1 text-[14px] text-lift-text-muted">{focusName(session.tag)}</p>
           </div>
-          <div className="text-[10px] font-semibold tracking-[0.1em] uppercase text-lift-text-muted mb-2">{session.tag}</div>
-          <p className="text-[11px] leading-relaxed text-lift-text-muted m-0">{session.keyFocus}</p>
-          {isPreview && (
-            <button
-              onClick={() => setSelectedSessionId(null)}
-              className="mt-2 inline-flex items-center gap-1.5 text-[10px] font-semibold text-lift-accent-3 bg-transparent border-none p-0"
-            >
-              <RotateCcw className="w-3 h-3" /> Return to up next
+          {isPreview ? (
+            <button onClick={() => setSelectedSessionId(null)} className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full bg-lift-inset px-3 text-xs font-medium text-lift-text-muted">
+              <RotateCcw className="h-3.5 w-3.5" /> Up next
             </button>
-          )}
+          ) : doneToday ? (
+            <span className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-lift-success-bg px-3 py-2 text-xs font-semibold text-lift-success-text"><Check className="h-3.5 w-3.5" /> Done today</span>
+          ) : null}
         </section>
+        <p className="mb-4 mt-0 text-[14px] leading-relaxed text-lift-text-muted">{session.keyFocus}</p>
 
-        <div className="flex flex-col gap-2">
+        <section aria-label={`${sessionName(session.label)} exercises`} className="overflow-hidden rounded-[22px] bg-lift-inset">
           {session.exercises.map((exercise, index) => {
             const key = `${session.id}-${index}`;
             const isDone = !!doneExercises[`${dateKey}-${key}`];
             const isExpanded = expandedExercise === key;
-
             return (
-              <article key={key} className={clsx('rounded-xl border bg-white transition-colors', isDone ? 'border-lift-success-border' : 'border-lift-border')}>
-                <div className="flex items-center gap-3 px-3.5 py-3">
-                  <button
-                    onClick={() => toggleExercise(session.id, index, !isDone)}
-                    disabled={isPreview}
-                    aria-label={`${isDone ? 'Unmark' : 'Mark'} ${exercise.name} complete`}
-                    className={clsx(
-                      'w-5 h-5 shrink-0 rounded-full border inline-flex items-center justify-center',
-                      isDone ? 'bg-lift-success-icon border-lift-success-icon text-white' : 'bg-white border-[#D5DAD6] text-transparent',
-                      isPreview && 'cursor-not-allowed opacity-60',
-                    )}
-                  >
-                    <Check className="w-3 h-3" strokeWidth={3} />
+              <article key={key} className={clsx('mx-4', index > 0 && 'border-t border-lift-border')}>
+                <div className="flex min-h-[68px] items-center gap-3 py-2.5">
+                  <button onClick={() => toggleExercise(session.id, index, !isDone)} disabled={isPreview || doneToday} aria-label={`${isDone ? 'Unmark' : 'Mark'} ${exercise.name} complete`}
+                    className={clsx('inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full', (isPreview || doneToday) && 'cursor-not-allowed opacity-60')}>
+                    <span className={clsx('inline-flex h-[23px] w-[23px] items-center justify-center rounded-full border transition-colors', isDone ? 'border-lift-accent-3 bg-lift-accent-3 text-white' : 'border-lift-border bg-white text-transparent')}><Check className="h-3.5 w-3.5" strokeWidth={2.5} /></span>
                   </button>
                   <div className="min-w-0 flex-1">
-                    <div className={clsx('text-[12px] font-semibold tracking-tight', isDone ? 'text-lift-text-muted line-through' : 'text-lift-text')}>
-                      {exercise.name}
-                    </div>
-                    <div className="flex items-center gap-2 mt-1.5">
-                      <span className="text-[9px] text-lift-text-muted">{exercise.sets} sets</span>
-                      <span className="w-0.5 h-0.5 rounded-full bg-[#B2B8B3]" />
-                      <span className="text-[9px] font-medium text-lift-text-muted">{exercise.reps} reps</span>
-                    </div>
+                    <div className={clsx('text-[14px] font-medium leading-snug', isDone && 'text-lift-text-muted line-through')}>{exercise.name}</div>
+                    <div className="mt-1 text-xs text-lift-text-muted">{exercise.sets} sets <span className="mx-1.5 text-lift-text-dim">·</span> {exercise.reps} reps</div>
                   </div>
-                  <button
-                    onClick={() => setExpandedExercise(isExpanded ? null : key)}
-                    aria-label={`${isExpanded ? 'Hide' : 'Show'} ${exercise.name} note`}
-                    className="w-8 h-8 shrink-0 inline-flex items-center justify-center rounded-full text-lift-text-dim bg-transparent border-none"
-                  >
-                    {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  <button onClick={() => setExpandedExercise(isExpanded ? null : key)} aria-label={`${isExpanded ? 'Hide' : 'Show'} ${exercise.name} note`} className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-lift-text-muted">
+                    {isExpanded ? <ChevronUp className="h-[18px] w-[18px]" /> : <ChevronDown className="h-[18px] w-[18px]" />}
                   </button>
                 </div>
-                {isExpanded && <p className="m-0 border-t border-lift-border px-3.5 py-3 text-[10px] leading-relaxed text-lift-text-muted">{exercise.note}</p>}
+                {isExpanded && <p className="m-0 border-t border-lift-border pb-4 pt-3 text-[13px] leading-relaxed text-lift-text-muted">{exercise.note}</p>}
               </article>
             );
           })}
-        </div>
+        </section>
 
-        <button
-          onClick={completeCurrentSession}
-          disabled={isPreview}
-          className={clsx(
-            'w-full mt-4 h-12 rounded-xl font-semibold text-[11px] tracking-wide border transition-colors',
-            isPreview
-              ? 'bg-[#EEF0ED] text-lift-text-dim border-transparent cursor-not-allowed'
-              : 'bg-lift-accent-3 text-white border-lift-accent-3 hover:bg-[#176F4A]',
-          )}
-        >
-          {isPreview ? 'PREVIEW ONLY · RETURN TO UP NEXT TO COMPLETE' : 'MARK SESSION COMPLETE'}
+        <button onClick={completeCurrentSession} disabled={isPreview || doneToday}
+          className={clsx('mt-4 flex h-[54px] w-full items-center justify-center rounded-2xl text-[15px] font-semibold transition-colors', isPreview || doneToday ? 'bg-lift-inset text-lift-text-dim' : 'bg-lift-text text-white active:bg-[#2E2E33]')}>
+          {isPreview ? 'Preview only' : doneToday ? 'Session completed' : 'Complete session'}
         </button>
       </main>
 
       {showGuidelines && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/35 p-4" onClick={() => setShowGuidelines(false)}>
-          <div className="bg-white border border-lift-border w-full max-w-md rounded-2xl overflow-hidden shadow-2xl max-h-[85vh] flex flex-col" onClick={(event) => event.stopPropagation()}>
-            <div className="p-5 border-b border-lift-border flex justify-between items-center shrink-0">
-              <h2 className="text-base font-semibold tracking-tight text-lift-text">Training notes</h2>
-              <button onClick={() => setShowGuidelines(false)} aria-label="Close training notes" className="text-lift-text-muted bg-transparent border-none p-1">
-                <X className="w-5 h-5" />
-              </button>
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/35 p-4 sm:items-center" onClick={() => setShowGuidelines(false)}>
+          <div className="flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-[26px] border border-lift-border bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="flex shrink-0 items-center justify-between border-b border-lift-border p-5">
+              <h2 className="m-0 text-lg font-semibold tracking-tight">Training notes</h2>
+              <button onClick={() => setShowGuidelines(false)} aria-label="Close training notes" className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-lift-inset text-lift-text-muted"><X className="h-[18px] w-[18px]" /></button>
             </div>
-            <div className="p-5 overflow-y-auto">
-              <div className="rounded-xl border border-lift-border bg-lift-bg p-4 mb-4">
-                <div className="text-[10px] font-semibold text-lift-text mb-1">Rotation and catch-up</div>
-                <p className="text-[11px] text-lift-text-muted leading-relaxed m-0">
-                  The four-session rotation keeps its place. After more than {GAP_THRESHOLD_DAYS} days without a completed session, catch-up sessions alternate until your regular cadence resumes.
-                </p>
-              </div>
-              <div className="rounded-xl border border-lift-border bg-white p-4">
-                <div className="text-[10px] font-semibold text-lift-text mb-3">Progressive overload</div>
-                <div className="space-y-2.5">
-                  {overloadRules.map((rule) => (
-                    <div key={rule.rule} className="flex justify-between gap-3 text-[10px]">
-                      <span className="font-medium text-lift-text-muted">{rule.rule}</span>
-                      <span className="text-lift-text-dim text-right">{rule.add}</span>
-                    </div>
-                  ))}
+            <div className="overflow-y-auto p-5">
+              <section className="mb-5">
+                <h3 className="mb-1 text-sm font-semibold">Rotation and catch-up</h3>
+                <p className="m-0 text-[14px] leading-relaxed text-lift-text-muted">The four-session rotation keeps its place. After more than {GAP_THRESHOLD_DAYS} days without a completed session, catch-up sessions alternate until your regular cadence resumes.</p>
+              </section>
+              <section>
+                <h3 className="mb-3 text-sm font-semibold">Progressive overload</h3>
+                <div className="divide-y divide-lift-border">
+                  {overloadRules.map((rule) => <div key={rule.rule} className="flex justify-between gap-4 py-3 text-[13px]"><span className="font-medium text-lift-text">{rule.rule}</span><span className="text-right text-lift-text-muted">{rule.add}</span></div>)}
                 </div>
-              </div>
+              </section>
             </div>
           </div>
         </div>
       )}
     </div>
   );
+}
+
+function sessionName(label: string) {
+  return label.toLowerCase().replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
+}
+
+function focusName(tag: string) {
+  return tag.split('—').map((part, index) => index === 0
+    ? part.trim().toLowerCase().replace(/^\w/, (letter) => letter.toUpperCase())
+    : part.trim().toLowerCase()).join(' · ');
+}
+
+function getCurrentSessionRun(dates: string[], today: Date) {
+  const recent = dates.at(-1);
+  if (!recent) return 0;
+  const elapsed = Math.floor((Date.parse(format(today, 'yyyy-MM-dd') + 'T00:00:00Z') - Date.parse(recent + 'T00:00:00Z')) / 86_400_000);
+  if (elapsed > GAP_THRESHOLD_DAYS) return 0;
+  let run = 1;
+  for (let index = dates.length - 1; index > 0; index--) {
+    const gap = Math.floor((Date.parse(dates[index] + 'T00:00:00Z') - Date.parse(dates[index - 1] + 'T00:00:00Z')) / 86_400_000);
+    if (gap > GAP_THRESHOLD_DAYS) break;
+    run++;
+  }
+  return run;
 }

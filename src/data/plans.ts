@@ -9,7 +9,6 @@ export type TrainingSession = {
   id: string;
   label: string;
   tag: string;
-  accentColor: string;
   keyFocus: string;
   exercises: Exercise[];
 };
@@ -19,7 +18,6 @@ export const rotation: TrainingSession[] = [
         id: "UA",
         label: "UPPER A",
         tag: "UPPER — PUSH FOCUS",
-        accentColor: "#E8FF3D",
         keyFocus: "Chest and shoulders lead. Back gets quality volume too.",
         exercises: [
           { name: "Barbell Bench Press", sets: "4", reps: "6–8", note: "Anchor movement. Go heavy, add 2.5kg when all reps clean." },
@@ -37,7 +35,6 @@ export const rotation: TrainingSession[] = [
         id: "LA",
         label: "LOWER A",
         tag: "LOWER — QUAD FOCUS",
-        accentColor: "#FF6B35",
         keyFocus: "Quads and glutes lead. Hamstrings and calves follow.",
         exercises: [
           { name: "Squat", sets: "4", reps: "6–8", note: "King of lower body. Full depth. Don't skip this." },
@@ -53,7 +50,6 @@ export const rotation: TrainingSession[] = [
         id: "UB",
         label: "UPPER B",
         tag: "UPPER — PULL FOCUS",
-        accentColor: "#00C9A7",
         keyFocus: "Back and rear delts lead. Chest and shoulders get volume hit 2.",
         exercises: [
           { name: "Weighted Pull-ups / Lat Pulldown", sets: "4", reps: "6–10", note: "Back width. The actual V in V-taper. Wide grip, pull to upper chest." },
@@ -71,7 +67,6 @@ export const rotation: TrainingSession[] = [
         id: "LB",
         label: "LOWER B",
         tag: "LOWER — POSTERIOR FOCUS",
-        accentColor: "#FF6B35",
         keyFocus: "Hamstrings and glutes lead. Deadlift anchors this session.",
         exercises: [
           { name: "Deadlift", sets: "3", reps: "4–6", note: "Heaviest lift of the week. Full posterior chain. Add 5kg when all reps clean." },
@@ -89,7 +84,6 @@ export const fallbackA: TrainingSession = {
         id: "FA",
         label: "CATCH-UP A",
         tag: "FULL BODY — PUSH FOCUS",
-        accentColor: "#E8FF3D",
         keyFocus: "Chest & quads lead. Back + shoulders + hamstrings follow.",
         exercises: [
           { name: "Barbell Bench Press", sets: "4", reps: "6–8", note: "Heaviest pressing movement. Chest + front delt mass builder. Add 2.5kg when you hit 8 reps all sets." },
@@ -107,7 +101,6 @@ export const fallbackB: TrainingSession = {
         id: "FB",
         label: "CATCH-UP B",
         tag: "FULL BODY — PULL FOCUS",
-        accentColor: "#FF6B35",
         keyFocus: "Back & hamstrings lead. Chest + shoulders + quads follow.",
         exercises: [
           { name: "Deadlift", sets: "3", reps: "4–6", note: "Heaviest lift of the week. Back, glutes, hamstrings, core. Everything. Don't skip." },

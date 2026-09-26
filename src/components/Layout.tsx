@@ -1,34 +1,34 @@
 import { Link, Outlet } from '@tanstack/react-router';
-import { Dumbbell, CalendarDays } from 'lucide-react';
+import { Dumbbell, ChartNoAxesCombined } from 'lucide-react';
 
 export function Layout() {
   return (
-    <div className="flex flex-col h-[100dvh] bg-lift-bg text-lift-text max-w-md mx-auto w-full relative">
-      <main className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
+    <div className="relative mx-auto flex h-[100dvh] w-full max-w-[430px] flex-col bg-white text-lift-text shadow-[0_0_48px_rgba(17,17,20,0.06)]">
+      <main className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
         <Outlet />
       </main>
 
-      <nav className="z-50 shrink-0 border-t border-lift-border bg-white/95 p-2 backdrop-blur-md">
-        <div className="max-w-md mx-auto flex justify-around items-center">
+      <nav className="z-50 shrink-0 border-t border-lift-border bg-white px-8 pt-2 pb-[max(env(safe-area-inset-bottom),8px)]">
+        <div className="mx-auto flex max-w-xs items-center justify-around">
           <Link
             to="/"
-            className="flex flex-col items-center rounded-xl p-2 text-lift-text-dim transition-all duration-200"
+            className="flex min-w-20 flex-col items-center gap-1 rounded-xl p-2 text-lift-text-dim transition-colors duration-200"
             activeProps={{
-              className: 'text-lift-accent-3 !text-lift-accent-3',
+              className: 'text-lift-text !text-lift-text',
             }}
           >
-            <Dumbbell className="w-6 h-6 mb-1" />
-            <span className="text-[10px] font-bold tracking-widest">WORKOUT</span>
+            <Dumbbell className="h-5 w-5" strokeWidth={1.8} />
+            <span className="text-xs font-medium">Workout</span>
           </Link>
           <Link
             to="/tracker"
-            className="flex flex-col items-center rounded-xl p-2 text-lift-text-dim transition-all duration-200"
+            className="flex min-w-20 flex-col items-center gap-1 rounded-xl p-2 text-lift-text-dim transition-colors duration-200"
             activeProps={{
-              className: 'text-lift-accent-3 !text-lift-accent-3',
+              className: 'text-lift-text !text-lift-text',
             }}
           >
-            <CalendarDays className="w-6 h-6 mb-1" />
-            <span className="text-[10px] font-bold tracking-widest">TRACKER</span>
+            <ChartNoAxesCombined className="h-5 w-5" strokeWidth={1.8} />
+            <span className="text-xs font-medium">Progress</span>
           </Link>
         </div>
       </nav>
