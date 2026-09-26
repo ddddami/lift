@@ -18,7 +18,7 @@ export function Home() {
   const [showFallbackQueue, setShowFallbackQueue] = useState(false);
   const [queueCollapsed, setQueueCollapsed] = useState(false);
   const queueCollapsedRef = useRef(queueCollapsed);
-  const exerciseScrollerRef = useRef<HTMLElement | null>(null);
+  const workoutScrollerRef = useRef<HTMLElement | null>(null);
 
   const today = new Date();
   const dateKey = format(today, 'yyyy-MM-dd');
@@ -41,8 +41,9 @@ export function Home() {
   const fallbackType = recommended.type === 'rotation' ? null : recommended.type;
 
   useEffect(() => {
-    const scroller = exerciseScrollerRef.current;
+    const scroller = workoutScrollerRef.current;
     if (!scroller) return;
+    scroller.scrollTop = 0;
 
     let touchStartY = 0;
     let touchStartScrollTop = 0;
@@ -100,14 +101,23 @@ export function Home() {
       wheelUnlockTimer = setTimeout(() => { wheelTransitionLocked = false; }, 180);
     };
 
+    const onScroll = () => {
+      if (!queueCollapsedRef.current && scroller.scrollTop > 0) {
+        scroller.scrollTop = 0;
+        setCollapsed(true);
+      }
+    };
+
     scroller.addEventListener('touchstart', onTouchStart, { passive: true });
     scroller.addEventListener('touchmove', onTouchMove, { passive: false });
     scroller.addEventListener('wheel', onWheel, { passive: false });
+    scroller.addEventListener('scroll', onScroll, { passive: true });
 
     return () => {
       scroller.removeEventListener('touchstart', onTouchStart);
       scroller.removeEventListener('touchmove', onTouchMove);
       scroller.removeEventListener('wheel', onWheel);
+      scroller.removeEventListener('scroll', onScroll);
       if (wheelUnlockTimer) clearTimeout(wheelUnlockTimer);
     };
   }, [session.id]);
@@ -242,7 +252,7 @@ export function Home() {
         </section>
       </div>
 
-      <main className="flex min-h-0 flex-1 flex-col overflow-hidden px-5 pb-3 pt-4">
+      <main ref={workoutScrollerRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-8 pt-4">
 
         {gapDetected && (
           <div role="status" className="mb-4 flex items-center justify-between gap-3 rounded-2xl bg-lift-notice-bg px-4 py-3 text-[13px] leading-snug text-lift-notice-text">
@@ -266,12 +276,7 @@ export function Home() {
         </section>
         <p className="mb-4 mt-0 text-[14px] leading-relaxed text-lift-text-muted">{session.keyFocus}</p>
 
-        <section
-          ref={exerciseScrollerRef}
-          key={session.id}
-          aria-label={`${sessionName(session.label)} exercises`}
-          className="min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-[22px] bg-lift-inset"
-        >
+        <section aria-label={`${sessionName(session.label)} exercises`} className="overflow-hidden rounded-[22px] bg-lift-inset">
           {session.exercises.map((exercise, index) => {
             const key = `${session.id}-${index}`;
             const isDone = !!doneExercises[`${dateKey}-${key}`];
@@ -298,7 +303,7 @@ export function Home() {
         </section>
 
         <button onClick={completeCurrentSession} disabled={isPreview || doneToday}
-          className={clsx('mt-3 flex h-[54px] w-full shrink-0 items-center justify-center rounded-2xl text-[15px] font-semibold transition-colors', isPreview || doneToday ? 'bg-lift-inset text-lift-text-dim' : 'bg-lift-text text-white active:bg-[#2E2E33]')}>
+          className={clsx('mt-4 flex h-[54px] w-full items-center justify-center rounded-2xl text-[15px] font-semibold transition-colors', isPreview || doneToday ? 'bg-lift-inset text-lift-text-dim' : 'bg-lift-text text-white active:bg-[#2E2E33]')}>
           {isPreview ? 'Preview' : doneToday ? 'Session completed' : 'Complete session'}
         </button>
       </main>
