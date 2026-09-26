@@ -16,6 +16,7 @@ export function Home() {
   const [expandedExercise, setExpandedExercise] = useState<string | null>(null);
   const [showGuidelines, setShowGuidelines] = useState(false);
   const [showFallbackQueue, setShowFallbackQueue] = useState(false);
+  const [queueCollapsed, setQueueCollapsed] = useState(false);
 
   const today = new Date();
   const dateKey = format(today, 'yyyy-MM-dd');
@@ -67,8 +68,18 @@ export function Home() {
 
   return (
     <div className="flex h-full flex-col bg-white text-lift-text">
-      <main className="flex-1 overflow-y-auto overscroll-contain px-5 pt-[max(env(safe-area-inset-top),18px)] pb-8">
-        <header className="mb-5 flex items-center justify-between">
+      <main
+        onScroll={(event) => {
+          const scrollTop = event.currentTarget.scrollTop;
+          setQueueCollapsed((collapsed) => {
+            if (!collapsed && scrollTop > 96) return true;
+            if (collapsed && scrollTop < 24) return false;
+            return collapsed;
+          });
+        }}
+        className="flex-1 overflow-y-auto overscroll-contain px-5 pb-8"
+      >
+        <header className="mb-5 flex items-center justify-between pt-[max(env(safe-area-inset-top),18px)]">
           <div className="flex items-center gap-2.5">
             <Dumbbell className="h-[21px] w-[21px] text-lift-text" strokeWidth={2.2} />
             <span className="text-[19px] font-semibold tracking-tight">Lift Log</span>
@@ -87,9 +98,17 @@ export function Home() {
           </div>
         </header>
 
-        <section className="mb-6" aria-label="Training rotation">
-          <div className="mb-2.5 flex items-baseline justify-between">
-            <h2 className="m-0 text-[15px] font-semibold">{showFallbackQueue ? 'Fallback sessions' : 'Rotation'}</h2>
+        <section
+          aria-label={showFallbackQueue ? 'Fallback sessions' : 'Training rotation'}
+          className={clsx(
+            'sticky top-0 z-30 -mx-5 bg-white px-5 transition-[margin,padding,box-shadow] duration-200 ease-out motion-reduce:transition-none',
+            queueCollapsed ? 'mb-3 pb-2 shadow-[0_8px_18px_rgba(18,24,20,0.06)]' : 'mb-6 pb-1',
+          )}
+        >
+          <div className={clsx('flex items-center justify-between transition-[margin] duration-200 ease-out motion-reduce:transition-none', queueCollapsed ? 'mb-1' : 'mb-2.5')}>
+            <h2 className={clsx('m-0 font-semibold transition-[font-size] duration-200 ease-out motion-reduce:transition-none', queueCollapsed ? 'text-xs' : 'text-[15px]')}>
+              {showFallbackQueue ? 'Fallbacks' : 'Rotation'}
+            </h2>
             <button
               type="button"
               onClick={() => {
@@ -101,43 +120,45 @@ export function Home() {
                 }
               }}
               aria-pressed={showFallbackQueue}
-              className={clsx('inline-flex min-h-8 items-center gap-1 rounded-full px-2.5 text-[11px] font-semibold transition-colors', gapDetected && !showFallbackQueue ? 'bg-lift-notice-bg text-lift-notice-text' : 'bg-lift-inset text-lift-text-muted')}
+              aria-label={showFallbackQueue ? 'Show rotation queue' : 'Show fallback queue'}
+              className={clsx('inline-flex items-center justify-center rounded-full font-semibold transition-[height,width,padding,color,background-color] duration-200 ease-out motion-reduce:transition-none', queueCollapsed ? 'h-8 w-8' : 'min-h-8 gap-1 px-2.5 text-[11px]', gapDetected && !showFallbackQueue ? 'bg-lift-notice-bg text-lift-notice-text' : 'bg-lift-inset text-lift-text-muted')}
             >
-              {showFallbackQueue ? 'Rotation' : gapDetected ? 'Fallback ready' : 'Fallbacks'}
-              <ArrowLeftRight className="h-3.5 w-3.5" />
+              {!queueCollapsed && <span>{showFallbackQueue ? 'Rotation' : gapDetected ? 'Fallback ready' : 'Fallbacks'}</span>}
+              <ArrowLeftRight className={clsx('transition-[height,width] duration-200 ease-out motion-reduce:transition-none', queueCollapsed ? 'h-4 w-4' : 'h-3.5 w-3.5')} />
             </button>
           </div>
           {showFallbackQueue ? (
             <>
-              <div className="grid grid-cols-2 gap-1.5 rounded-[20px] bg-lift-inset p-1.5">
+              <div className={clsx('grid grid-cols-2 gap-1.5 bg-lift-inset transition-[padding,border-radius] duration-200 ease-out motion-reduce:transition-none', queueCollapsed ? 'rounded-2xl p-1' : 'rounded-[20px] p-1.5')}>
                 {fallbackSessions.map((item) => {
                   const selected = session.id === item.id;
                   const status = getFallbackStatus(item);
                   return (
-                    <button key={item.id} onClick={() => setSelectedSessionId(item.id)} aria-pressed={selected}
-                      className={clsx('flex min-h-[66px] min-w-0 flex-col items-start justify-between rounded-2xl px-3 py-2.5 text-left transition-colors', selected ? 'bg-lift-text text-white shadow-sm' : 'bg-transparent text-lift-text')}>
-                      <span className="text-[13px] font-semibold">Fallback {item.id === 'FA' ? 'A' : 'B'}</span>
-                      <span className={clsx('text-[11px] font-medium', selected ? 'text-white/70' : status === 'Suggested' ? 'text-lift-success-text' : 'text-lift-text-dim')}>{status}</span>
+                    <button key={item.id} onClick={() => setSelectedSessionId(item.id)} aria-pressed={selected} aria-label={`Fallback ${item.id === 'FA' ? 'A' : 'B'}, ${status}`}
+                      className={clsx('flex min-w-0 text-left transition-[height,padding,border-radius,background-color,color] duration-200 ease-out motion-reduce:transition-none', queueCollapsed ? 'h-9 items-center justify-center rounded-xl px-2' : 'h-[66px] flex-col items-start justify-between rounded-2xl px-3 py-2.5', selected ? 'bg-lift-text text-white shadow-sm' : 'bg-transparent text-lift-text')}>
+                      <span className={clsx('font-semibold', queueCollapsed ? 'text-xs' : 'text-[13px]')}>{queueCollapsed ? item.id : `Fallback ${item.id === 'FA' ? 'A' : 'B'}`}</span>
+                      {!queueCollapsed && <span className={clsx('text-[11px] font-medium', selected ? 'text-white/70' : status === 'Suggested' ? 'text-lift-success-text' : 'text-lift-text-dim')}>{status}</span>}
                     </button>
                   );
                 })}
               </div>
-              {recommended.type === 'rotation' && <p className="mb-0 mt-2 px-1 text-xs leading-relaxed text-lift-text-muted">Use a fallback when you expect a long gap. Your rotation position stays put.</p>}
+              {recommended.type === 'rotation' && <p className={clsx('mb-0 overflow-hidden px-1 text-xs leading-relaxed text-lift-text-muted transition-[max-height,margin,opacity] duration-200 ease-out motion-reduce:transition-none', queueCollapsed ? 'mt-0 max-h-0 opacity-0' : 'mt-2 max-h-10 opacity-100')}>Use a fallback when you expect a long gap. Your rotation position stays put.</p>}
             </>
           ) : (
-            <div className="grid grid-cols-4 gap-1.5 rounded-[20px] bg-lift-inset p-1.5">
+            <div className={clsx('grid grid-cols-4 gap-1.5 bg-lift-inset transition-[padding,border-radius] duration-200 ease-out motion-reduce:transition-none', queueCollapsed ? 'rounded-2xl p-1' : 'rounded-[20px] p-1.5')}>
               {rotation.map((item, index) => {
                 const status = getRotationStatus(item, index);
                 const isSelected = session.id === item.id;
                 const isDone = status === 'Done';
                 return (
-                  <button key={item.id} onClick={() => setSelectedSessionId(item.id === recommended.session.id ? null : item.id)} aria-pressed={isSelected}
-                    className={clsx('flex min-h-[74px] min-w-0 flex-col items-start justify-between rounded-2xl px-2.5 py-2.5 text-left transition-colors', isSelected ? 'bg-lift-text text-white shadow-sm' : 'bg-transparent text-lift-text')}>
-                    <span className={clsx('inline-flex h-[21px] w-[21px] items-center justify-center rounded-full text-[11px] font-semibold', isDone ? 'bg-lift-accent-3 text-white' : isSelected ? 'bg-white/15 text-white' : 'bg-white text-lift-text-muted')}>
-                      {isDone ? <Check className="h-3 w-3" strokeWidth={2.5} /> : `0${index + 1}`}
+                  <button key={item.id} onClick={() => setSelectedSessionId(item.id === recommended.session.id ? null : item.id)} aria-pressed={isSelected} aria-label={`${sessionName(item.label)}, ${status}`}
+                    className={clsx('flex min-w-0 text-left transition-[height,padding,border-radius,background-color,color] duration-200 ease-out motion-reduce:transition-none', queueCollapsed ? 'h-9 items-center justify-center rounded-xl px-1.5' : 'h-[74px] flex-col items-start justify-between rounded-2xl px-2.5 py-2.5', isSelected ? 'bg-lift-text text-white shadow-sm' : 'bg-transparent text-lift-text')}>
+                    <span className={clsx('inline-flex items-center justify-center font-semibold transition-[height,width,border-radius,background-color,color] duration-200 ease-out motion-reduce:transition-none', queueCollapsed ? 'h-auto w-auto rounded-none text-xs' : 'h-[21px] w-[21px] rounded-full text-[11px]', isDone ? 'bg-lift-accent-3 text-white' : isSelected ? 'bg-white/15 text-white' : 'bg-white text-lift-text-muted')}>
+                      {queueCollapsed ? item.id : isDone ? <Check className="h-3 w-3" strokeWidth={2.5} /> : `0${index + 1}`}
                     </span>
-                    <span className="block w-full truncate text-[12px] font-semibold">{sessionName(item.label)}</span>
-                    <span className={clsx('text-[11px] font-medium', isSelected ? 'text-white/70' : isDone ? 'text-lift-success-text' : 'text-lift-text-dim')}>{status}</span>
+                    {!queueCollapsed && <span className="block w-full truncate text-[12px] font-semibold">{sessionName(item.label)}</span>}
+                    {!queueCollapsed && <span className={clsx('text-[11px] font-medium', isSelected ? 'text-white/70' : isDone ? 'text-lift-success-text' : 'text-lift-text-dim')}>{status}</span>}
+                    {queueCollapsed && isDone && <Check className="ml-1 h-3 w-3 text-lift-success-text" strokeWidth={2.5} />}
                   </button>
                 );
               })}
