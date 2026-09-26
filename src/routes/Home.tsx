@@ -1,4 +1,5 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { format } from 'date-fns';
 import { Link } from '@tanstack/react-router';
 import { Activity, ArrowLeftRight, Check, ChevronDown, ChevronUp, Dumbbell, Flame, Info, RotateCcw, X } from 'lucide-react';
@@ -19,6 +20,7 @@ export function Home() {
   const [showGuidelines, setShowGuidelines] = useState(false);
   const [showFallbackQueue, setShowFallbackQueue] = useState(false);
   const [scrollOffset, setScrollOffset] = useState(0);
+  const [listUnlocked, setListUnlocked] = useState(false);
   const [geometry, setGeometry] = useState({ viewport: 0, overview: 0, exercises: 0, compactQueue: 0 });
   const scrollSurfaceRef = useRef<HTMLDivElement | null>(null);
   const overviewRef = useRef<HTMLDivElement | null>(null);
@@ -29,7 +31,13 @@ export function Home() {
   const overviewOffset = Math.min(geometry.overview, Math.max(0, scrollOffset - QUEUE_MORPH_SCROLL_DISTANCE));
   const exerciseOverflow = Math.max(0, geometry.exercises - Math.max(0, geometry.viewport - geometry.compactQueue - 70 - EXERCISE_ANCHOR_GAP));
   const exerciseOffset = Math.min(exerciseOverflow, Math.max(0, scrollOffset - QUEUE_MORPH_SCROLL_DISTANCE - geometry.overview));
-  const scrollDistance = QUEUE_MORPH_SCROLL_DISTANCE + geometry.overview + exerciseOverflow;
+  const exerciseAnchor = QUEUE_MORPH_SCROLL_DISTANCE + geometry.overview;
+  const scrollDistance = exerciseAnchor + (listUnlocked ? exerciseOverflow : 0);
+
+  const beginScrollGesture = () => {
+    if (showGuidelines || geometry.viewport === 0) return;
+    setListUnlocked((scrollSurfaceRef.current?.scrollTop ?? 0) >= exerciseAnchor - 1);
+  };
 
   const today = new Date();
   const dateKey = format(today, 'yyyy-MM-dd');
@@ -53,6 +61,7 @@ export function Home() {
 
   const selectSession = (id: string | null) => {
     setSelectedSessionId(id);
+    setListUnlocked(false);
     setScrollOffset(0);
     if (scrollSurfaceRef.current) scrollSurfaceRef.current.scrollTop = 0;
   };
@@ -75,6 +84,30 @@ export function Home() {
     measure();
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    const surface = scrollSurfaceRef.current;
+    if (!surface || showGuidelines || geometry.viewport === 0) return;
+    let wheelActive = false;
+    let idleTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const onWheel = (event: WheelEvent) => {
+      if (event.deltaY === 0 || event.ctrlKey) return;
+      if (!wheelActive) {
+        wheelActive = true;
+        // Update the native scroll extent before this wheel event's default action.
+        flushSync(() => setListUnlocked(surface.scrollTop >= exerciseAnchor - 1));
+      }
+      if (idleTimer) clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => { wheelActive = false; }, 300);
+    };
+
+    surface.addEventListener('wheel', onWheel, { passive: true });
+    return () => {
+      surface.removeEventListener('wheel', onWheel);
+      if (idleTimer) clearTimeout(idleTimer);
+    };
+  }, [exerciseAnchor, geometry.viewport, showGuidelines]);
 
   const openFallbackQueue = () => {
     setShowFallbackQueue(true);
@@ -116,10 +149,20 @@ export function Home() {
   return (
     <div
       ref={scrollSurfaceRef}
-      onScroll={(event) => setScrollOffset(Math.max(0, event.currentTarget.scrollTop))}
+      tabIndex={0}
+      aria-label="Workout"
+      onTouchStart={(event) => { if (event.touches.length === 1) beginScrollGesture(); }}
+      onKeyDown={(event) => {
+        if (event.target === event.currentTarget && ['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End', ' '].includes(event.key)) beginScrollGesture();
+      }}
+      onScroll={(event) => {
+        const offset = Math.min(scrollDistance, Math.max(0, event.currentTarget.scrollTop));
+        setScrollOffset(offset);
+        if (offset < exerciseAnchor - 1) setListUnlocked(false);
+      }}
       className={clsx('relative h-full min-h-0 overscroll-contain bg-white text-lift-text [overflow-anchor:none]', showGuidelines ? 'overflow-hidden' : 'overflow-y-auto')}
     >
-      {/* One native scroll position drives the pinned view; no gesture handoff or nested scroller. */}
+      {/* Cap native scrolling at the anchor until a new gesture unlocks the list. */}
       <div className="sticky top-0 flex flex-col overflow-hidden" style={{ height: geometry.viewport || '100%' }}>
         <div className={clsx(
           'shrink-0 overflow-hidden bg-white px-5',
