@@ -43,6 +43,15 @@ export function Home() {
     setSelectedSessionId(recommended.type === 'rotation' ? proactiveFallback.id : recommended.session.id);
   };
 
+  const toggleQueue = () => {
+    if (showFallbackQueue) {
+      setShowFallbackQueue(false);
+      setSelectedSessionId(null);
+    } else {
+      openFallbackQueue();
+    }
+  };
+
   const completeCurrentSession = () => {
     if (isPreview || doneToday) return;
     const sessionType = selectedFallback
@@ -68,18 +77,11 @@ export function Home() {
 
   return (
     <div className="flex h-full flex-col bg-white text-lift-text">
-      <main
-        onScroll={(event) => {
-          const scrollTop = event.currentTarget.scrollTop;
-          setQueueCollapsed((collapsed) => {
-            if (!collapsed && scrollTop > 96) return true;
-            if (collapsed && scrollTop < 24) return false;
-            return collapsed;
-          });
-        }}
-        className="flex-1 overflow-y-auto overscroll-contain px-5 pb-8"
-      >
-        <header className="mb-5 flex items-center justify-between pt-[max(env(safe-area-inset-top),18px)]">
+      <div className={clsx(
+        'shrink-0 overflow-hidden bg-white px-5 transition-[max-height,padding,box-shadow] duration-250 ease-out motion-reduce:transition-none',
+        queueCollapsed ? 'max-h-[220px] pb-2 shadow-[0_8px_18px_rgba(18,24,20,0.06)]' : 'max-h-[360px]',
+      )}>
+        <header className={clsx('flex items-center justify-between pt-[max(env(safe-area-inset-top),18px)] transition-[margin] duration-200 ease-out motion-reduce:transition-none', queueCollapsed ? 'mb-2' : 'mb-5')}>
           <div className="flex items-center gap-2.5">
             <Dumbbell className="h-[21px] w-[21px] text-lift-text" strokeWidth={2.2} />
             <span className="text-[19px] font-semibold tracking-tight">Lift Log</span>
@@ -95,33 +97,31 @@ export function Home() {
             <Link to="/body" aria-label="Body tracking" className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-lift-inset text-lift-text-muted">
               <Activity className="h-[17px] w-[17px]" strokeWidth={1.8} />
             </Link>
+            {queueCollapsed && (
+              <button onClick={toggleQueue} aria-label={showFallbackQueue ? 'Show rotation queue' : 'Show fallback queue'} aria-pressed={showFallbackQueue} className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-lift-inset text-lift-text-muted">
+                <ArrowLeftRight className="h-4 w-4" />
+              </button>
+            )}
           </div>
         </header>
 
         <section
           aria-label={showFallbackQueue ? 'Fallback sessions' : 'Training rotation'}
           className={clsx(
-            'sticky top-0 z-30 -mx-5 bg-white px-5 transition-[margin,padding,box-shadow] duration-200 ease-out motion-reduce:transition-none',
-            queueCollapsed ? 'mb-3 pb-2 shadow-[0_8px_18px_rgba(18,24,20,0.06)]' : 'mb-6 pb-1',
+            'transition-[margin] duration-200 ease-out motion-reduce:transition-none',
+            queueCollapsed ? 'mb-0' : 'mb-6',
           )}
         >
-          <div className={clsx('flex items-center justify-between transition-[margin] duration-200 ease-out motion-reduce:transition-none', queueCollapsed ? 'mb-1' : 'mb-2.5')}>
+          <div className={clsx('flex items-center justify-between transition-[margin,opacity] duration-200 ease-out motion-reduce:transition-none', queueCollapsed ? 'mb-0 max-h-0 overflow-hidden opacity-0' : 'mb-2.5 max-h-8 opacity-100')}>
             <h2 className={clsx('m-0 font-semibold transition-[font-size] duration-200 ease-out motion-reduce:transition-none', queueCollapsed ? 'text-xs' : 'text-[15px]')}>
               {showFallbackQueue ? 'Fallbacks' : 'Rotation'}
             </h2>
             <button
               type="button"
-              onClick={() => {
-                if (showFallbackQueue) {
-                  setShowFallbackQueue(false);
-                  setSelectedSessionId(null);
-                } else {
-                  openFallbackQueue();
-                }
-              }}
+              onClick={toggleQueue}
               aria-pressed={showFallbackQueue}
               aria-label={showFallbackQueue ? 'Show rotation queue' : 'Show fallback queue'}
-              className={clsx('inline-flex items-center justify-center rounded-full font-semibold transition-[height,width,padding,color,background-color] duration-200 ease-out motion-reduce:transition-none', queueCollapsed ? 'h-8 w-8' : 'min-h-8 gap-1 px-2.5 text-[11px]', gapDetected && !showFallbackQueue ? 'bg-lift-notice-bg text-lift-notice-text' : 'bg-lift-inset text-lift-text-muted')}
+              className={clsx('inline-flex items-center justify-center rounded-full font-semibold transition-[height,width,padding,color,background-color] duration-200 ease-out motion-reduce:transition-none', queueCollapsed ? 'hidden' : 'min-h-8 gap-1 px-2.5 text-[11px]', gapDetected && !showFallbackQueue ? 'bg-lift-notice-bg text-lift-notice-text' : 'bg-lift-inset text-lift-text-muted')}
             >
               {!queueCollapsed && <span>{showFallbackQueue ? 'Rotation' : gapDetected ? 'Fallback ready' : 'Fallbacks'}</span>}
               <ArrowLeftRight className={clsx('transition-[height,width] duration-200 ease-out motion-reduce:transition-none', queueCollapsed ? 'h-4 w-4' : 'h-3.5 w-3.5')} />
@@ -165,6 +165,19 @@ export function Home() {
             </div>
           )}
         </section>
+      </div>
+
+      <main
+        onScroll={(event) => {
+          const scrollTop = event.currentTarget.scrollTop;
+          setQueueCollapsed((collapsed) => {
+            if (!collapsed && scrollTop > 96) return true;
+            if (collapsed && scrollTop < 24) return false;
+            return collapsed;
+          });
+        }}
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-8 pt-4"
+      >
 
         {gapDetected && (
           <div role="status" className="mb-4 flex items-center justify-between gap-3 rounded-2xl bg-lift-notice-bg px-4 py-3 text-[13px] leading-snug text-lift-notice-text">
