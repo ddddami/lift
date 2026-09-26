@@ -97,11 +97,6 @@ export function Home() {
             <Link to="/body" aria-label="Body tracking" className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-lift-inset text-lift-text-muted">
               <Activity className="h-[17px] w-[17px]" strokeWidth={1.8} />
             </Link>
-            {queueCollapsed && (
-              <button onClick={toggleQueue} aria-label={showFallbackQueue ? 'Show rotation queue' : 'Show fallback queue'} aria-pressed={showFallbackQueue} className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-lift-inset text-lift-text-muted">
-                <ArrowLeftRight className="h-4 w-4" />
-              </button>
-            )}
           </div>
         </header>
 
@@ -129,55 +124,51 @@ export function Home() {
           </div>
           {showFallbackQueue ? (
             <>
-              <div className={clsx('grid grid-cols-2 gap-1.5 bg-lift-inset transition-[padding,border-radius] duration-200 ease-out motion-reduce:transition-none', queueCollapsed ? 'rounded-2xl p-1' : 'rounded-[20px] p-1.5')}>
-                {fallbackSessions.map((item) => {
-                  const selected = session.id === item.id;
-                  const status = getFallbackStatus(item);
-                  return (
-                    <button key={item.id} onClick={() => setSelectedSessionId(item.id)} aria-pressed={selected} aria-label={`Fallback ${item.id === 'FA' ? 'A' : 'B'}, ${status}`}
-                      className={clsx('flex min-w-0 text-left transition-[height,padding,border-radius,background-color,color] duration-200 ease-out motion-reduce:transition-none', queueCollapsed ? 'h-9 items-center justify-center rounded-xl px-2' : 'h-[66px] flex-col items-start justify-between rounded-2xl px-3 py-2.5', selected ? 'bg-lift-text text-white shadow-sm' : 'bg-transparent text-lift-text')}>
-                      <span className={clsx('font-semibold', queueCollapsed ? 'text-xs' : 'text-[13px]')}>{queueCollapsed ? item.id : `Fallback ${item.id === 'FA' ? 'A' : 'B'}`}</span>
-                      {!queueCollapsed && <span className={clsx('text-[11px] font-medium', selected ? 'text-white/70' : status === 'Suggested' ? 'text-lift-success-text' : 'text-lift-text-dim')}>{status}</span>}
-                    </button>
-                  );
-                })}
+              <div className={clsx(queueCollapsed && 'flex items-center gap-1.5')}>
+                <div className={clsx('grid grid-cols-2 gap-1.5 bg-lift-inset transition-[padding,border-radius] duration-200 ease-out motion-reduce:transition-none', queueCollapsed ? 'min-w-0 flex-1 rounded-2xl p-1' : 'rounded-[20px] p-1.5')}>
+                  {fallbackSessions.map((item) => {
+                    const selected = session.id === item.id;
+                    const status = getFallbackStatus(item);
+                    return (
+                      <button key={item.id} onClick={() => setSelectedSessionId(item.id)} aria-pressed={selected} aria-label={`Fallback ${item.id === 'FA' ? 'A' : 'B'}, ${status}`}
+                        className={clsx('flex min-w-0 text-left transition-[height,padding,border-radius,background-color,color] duration-200 ease-out motion-reduce:transition-none', queueCollapsed ? 'h-9 items-center justify-center rounded-xl px-2' : 'h-[66px] flex-col items-start justify-between rounded-2xl px-3 py-2.5', selected ? 'bg-lift-text text-white shadow-sm' : 'bg-transparent text-lift-text')}>
+                        <span className={clsx('font-semibold', queueCollapsed ? 'text-xs' : 'text-[13px]')}>{queueCollapsed ? item.id : `Fallback ${item.id === 'FA' ? 'A' : 'B'}`}</span>
+                        {!queueCollapsed && <span className={clsx('text-[11px] font-medium', selected ? 'text-white/70' : status === 'Suggested' ? 'text-lift-success-text' : 'text-lift-text-dim')}>{status}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+                {queueCollapsed && <button onClick={toggleQueue} aria-label="Show rotation queue" aria-pressed={showFallbackQueue} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-lift-inset text-lift-text-muted"><ArrowLeftRight className="h-4 w-4" /></button>}
               </div>
               {recommended.type === 'rotation' && <p className={clsx('mb-0 overflow-hidden px-1 text-xs leading-relaxed text-lift-text-muted transition-[max-height,margin,opacity] duration-200 ease-out motion-reduce:transition-none', queueCollapsed ? 'mt-0 max-h-0 opacity-0' : 'mt-2 max-h-10 opacity-100')}>Use a fallback when you expect a long gap. Your rotation position stays put.</p>}
             </>
           ) : (
-            <div className={clsx('grid grid-cols-4 gap-1.5 bg-lift-inset transition-[padding,border-radius] duration-200 ease-out motion-reduce:transition-none', queueCollapsed ? 'rounded-2xl p-1' : 'rounded-[20px] p-1.5')}>
-              {rotation.map((item, index) => {
-                const status = getRotationStatus(item, index);
-                const isSelected = session.id === item.id;
-                const isDone = status === 'Done';
-                return (
-                  <button key={item.id} onClick={() => setSelectedSessionId(item.id === recommended.session.id ? null : item.id)} aria-pressed={isSelected} aria-label={`${sessionName(item.label)}, ${status}`}
-                    className={clsx('flex min-w-0 text-left transition-[height,padding,border-radius,background-color,color] duration-200 ease-out motion-reduce:transition-none', queueCollapsed ? 'h-9 items-center justify-center rounded-xl px-1.5' : 'h-[74px] flex-col items-start justify-between rounded-2xl px-2.5 py-2.5', isSelected ? 'bg-lift-text text-white shadow-sm' : 'bg-transparent text-lift-text')}>
-                    <span className={clsx('inline-flex items-center justify-center font-semibold transition-[height,width,border-radius,background-color,color] duration-200 ease-out motion-reduce:transition-none', queueCollapsed ? 'h-auto w-auto rounded-none text-xs' : 'h-[21px] w-[21px] rounded-full text-[11px]', isDone ? 'bg-lift-accent-3 text-white' : isSelected ? 'bg-white/15 text-white' : 'bg-white text-lift-text-muted')}>
-                      {queueCollapsed ? item.id : isDone ? <Check className="h-3 w-3" strokeWidth={2.5} /> : `0${index + 1}`}
-                    </span>
-                    {!queueCollapsed && <span className="block w-full truncate text-[12px] font-semibold">{sessionName(item.label)}</span>}
-                    {!queueCollapsed && <span className={clsx('text-[11px] font-medium', isSelected ? 'text-white/70' : isDone ? 'text-lift-success-text' : 'text-lift-text-dim')}>{status}</span>}
-                    {queueCollapsed && isDone && <Check className="ml-1 h-3 w-3 text-lift-success-text" strokeWidth={2.5} />}
-                  </button>
-                );
-              })}
+            <div className={clsx(queueCollapsed && 'flex items-center gap-1.5')}>
+              <div className={clsx('grid grid-cols-4 gap-1.5 bg-lift-inset transition-[padding,border-radius] duration-200 ease-out motion-reduce:transition-none', queueCollapsed ? 'min-w-0 flex-1 rounded-2xl p-1' : 'rounded-[20px] p-1.5')}>
+                {rotation.map((item, index) => {
+                  const status = getRotationStatus(item, index);
+                  const isSelected = session.id === item.id;
+                  const isDone = status === 'Done';
+                  return (
+                    <button key={item.id} onClick={() => setSelectedSessionId(item.id === recommended.session.id ? null : item.id)} aria-pressed={isSelected} aria-label={`${sessionName(item.label)}, ${status}`}
+                      className={clsx('flex min-w-0 text-left transition-[height,padding,border-radius,background-color,color] duration-200 ease-out motion-reduce:transition-none', queueCollapsed ? 'h-9 items-center justify-center rounded-xl px-1.5' : 'h-[74px] flex-col items-start justify-between rounded-2xl px-2.5 py-2.5', isSelected ? 'bg-lift-text text-white shadow-sm' : 'bg-transparent text-lift-text')}>
+                      <span className={clsx('inline-flex items-center justify-center font-semibold transition-[height,width,border-radius,background-color,color] duration-200 ease-out motion-reduce:transition-none', queueCollapsed ? 'h-auto w-auto rounded-none text-xs' : 'h-[21px] w-[21px] rounded-full text-[11px]', isDone ? 'bg-lift-accent-3 text-white' : isSelected ? 'bg-white/15 text-white' : 'bg-white text-lift-text-muted')}>
+                        {queueCollapsed ? item.id : isDone ? <Check className="h-3 w-3" strokeWidth={2.5} /> : `0${index + 1}`}
+                      </span>
+                      {!queueCollapsed && <span className="block w-full truncate text-[12px] font-semibold">{sessionName(item.label)}</span>}
+                      {!queueCollapsed && <span className={clsx('text-[11px] font-medium', isSelected ? 'text-white/70' : isDone ? 'text-lift-success-text' : 'text-lift-text-dim')}>{status}</span>}
+                      {queueCollapsed && isDone && <Check className="ml-1 h-3 w-3 text-lift-success-text" strokeWidth={2.5} />}
+                    </button>
+                  );
+                })}
+              </div>
+              {queueCollapsed && <button onClick={toggleQueue} aria-label="Show fallback queue" aria-pressed={showFallbackQueue} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-lift-inset text-lift-text-muted"><ArrowLeftRight className="h-4 w-4" /></button>}
             </div>
           )}
         </section>
       </div>
 
-      <main
-        onScroll={(event) => {
-          const scrollTop = event.currentTarget.scrollTop;
-          setQueueCollapsed((collapsed) => {
-            if (!collapsed && scrollTop > 96) return true;
-            if (collapsed && scrollTop < 24) return false;
-            return collapsed;
-          });
-        }}
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-8 pt-4"
-      >
+      <main className="flex min-h-0 flex-1 flex-col overflow-hidden px-5 pb-3 pt-4">
 
         {gapDetected && (
           <div role="status" className="mb-4 flex items-center justify-between gap-3 rounded-2xl bg-lift-notice-bg px-4 py-3 text-[13px] leading-snug text-lift-notice-text">
@@ -201,7 +192,19 @@ export function Home() {
         </section>
         <p className="mb-4 mt-0 text-[14px] leading-relaxed text-lift-text-muted">{session.keyFocus}</p>
 
-        <section aria-label={`${sessionName(session.label)} exercises`} className="overflow-hidden rounded-[22px] bg-lift-inset">
+        <section
+          key={session.id}
+          aria-label={`${sessionName(session.label)} exercises`}
+          onScroll={(event) => {
+            const scrollTop = event.currentTarget.scrollTop;
+            setQueueCollapsed((collapsed) => {
+              if (!collapsed && scrollTop > 96) return true;
+              if (collapsed && scrollTop < 24) return false;
+              return collapsed;
+            });
+          }}
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-[22px] bg-lift-inset"
+        >
           {session.exercises.map((exercise, index) => {
             const key = `${session.id}-${index}`;
             const isDone = !!doneExercises[`${dateKey}-${key}`];
@@ -228,7 +231,7 @@ export function Home() {
         </section>
 
         <button onClick={completeCurrentSession} disabled={isPreview || doneToday}
-          className={clsx('mt-4 flex h-[54px] w-full items-center justify-center rounded-2xl text-[15px] font-semibold transition-colors', isPreview || doneToday ? 'bg-lift-inset text-lift-text-dim' : 'bg-lift-text text-white active:bg-[#2E2E33]')}>
+          className={clsx('mt-3 flex h-[54px] w-full shrink-0 items-center justify-center rounded-2xl text-[15px] font-semibold transition-colors', isPreview || doneToday ? 'bg-lift-inset text-lift-text-dim' : 'bg-lift-text text-white active:bg-[#2E2E33]')}>
           {isPreview ? 'Preview' : doneToday ? 'Session completed' : 'Complete session'}
         </button>
       </main>
