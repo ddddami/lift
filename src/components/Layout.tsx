@@ -1,11 +1,10 @@
 import { useState } from 'react';
-import { Link, Outlet, useRouterState } from '@tanstack/react-router';
+import { Link, Outlet } from '@tanstack/react-router';
 import { Dumbbell, ChartNoAxesCombined, Scale } from 'lucide-react';
 import { SessionDockContext } from './sessionDock';
 
 export function Layout() {
   const [sessionDock, setSessionDock] = useState<HTMLDivElement | null>(null);
-  const isWorkout = useRouterState({ select: (state) => state.location.pathname === '/' });
 
   return (
     <SessionDockContext.Provider value={sessionDock}>
@@ -32,7 +31,7 @@ export function Layout() {
                 <Scale className="h-[22px] w-[22px]" strokeWidth={1.8} />
               </Link>
             </div>
-            {isWorkout && <div ref={setSessionDock} className="h-14 w-14 shrink-0" />}
+            <div ref={setSessionDock} className="h-14 w-14 shrink-0" />
           </div>
         </nav>
       </div>

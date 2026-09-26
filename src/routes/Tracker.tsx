@@ -1,16 +1,19 @@
-import { useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { SessionDockContext } from '../components/sessionDock';
 import { useStore } from '../store/useStore';
 import {
   addMonths, differenceInCalendarDays, eachDayOfInterval, endOfMonth, endOfWeek, format,
   isSameDay, isSameMonth, isToday, parseISO, startOfMonth, startOfWeek, subDays, subMonths,
 } from 'date-fns';
 import clsx from 'clsx';
-import { Activity, Check, ChevronLeft, ChevronRight, Dumbbell, Plus } from 'lucide-react';
+import { Undo2, Check, ChevronLeft, ChevronRight, Dumbbell, Plus } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
 import { GAP_THRESHOLD_DAYS, getNextSession } from '../data/training';
 
 export function Tracker() {
-  const { activityMap, trainingState, togglePastDate } = useStore();
+  const sessionDock = useContext(SessionDockContext);
+  const { activityMap, trainingState, completionUndo, undoSessionCompletion, togglePastDate } = useStore();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const heatmapRef = useRef<HTMLDivElement>(null);
@@ -46,6 +49,12 @@ export function Tracker() {
     : null;
   const fallbackRecommended = nextType !== 'rotation';
 
+  const toggleSelectedSession = () => {
+    if (selectedEntry?.count && selectedKey === format(new Date(), 'yyyy-MM-dd') && completionUndo?.date === selectedKey && trainingState.lastSessionDate === selectedKey) {
+      undoSessionCompletion();
+    } else togglePastDate(selectedKey);
+  };
+
   const intensityClass = (count: number) => {
     if (!count) return 'bg-lift-activity-empty text-lift-text-dim';
     if (count < 3) return 'bg-lift-activity-light text-lift-success-text';
@@ -66,9 +75,7 @@ export function Tracker() {
               <p className="m-0 mt-0.5 text-[14px] text-lift-text-muted">Your training, over time</p>
             </div>
           </div>
-          <Link to="/body" aria-label="Body tracking" className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-lift-inset text-lift-text-muted">
-            <Activity className="h-4 w-4" />
-          </Link>
+
         </div>
 
         <div className="grid grid-cols-2 gap-2.5">
@@ -158,10 +165,10 @@ export function Tracker() {
           {selectedEntry?.count ? (
             <div className="flex items-center justify-between rounded-2xl bg-lift-success-bg px-3 py-3">
               <div className="flex items-center gap-2"><span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-lift-success-text"><Check className="h-4 w-4" /></span><span className="text-[14px] font-semibold text-lift-success-text">{formatLabel(selectedEntry.sessionLabel ?? 'Workout logged')}</span></div>
-              <button onClick={() => togglePastDate(selectedKey)} className="rounded-xl bg-white px-3 py-2 text-xs font-semibold text-lift-text-muted">Undo</button>
+              <button onClick={toggleSelectedSession} className="rounded-xl bg-white px-3 py-2 text-xs font-semibold text-lift-text-muted">Undo</button>
             </div>
           ) : (
-            <button onClick={() => togglePastDate(selectedKey)} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-lift-border bg-white py-3 text-[13px] font-semibold text-lift-text-muted"><Plus className="h-4 w-4" /> Log a session</button>
+            <button onClick={toggleSelectedSession} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-lift-border bg-white py-3 text-[13px] font-semibold text-lift-text-muted"><Plus className="h-4 w-4" /> Log a session</button>
           )}
         </section>
 
@@ -170,6 +177,15 @@ export function Tracker() {
           <MetricCard value={totalWorkouts} label="All time" detail="sessions logged" />
         </div>
       </main>
+      {sessionDock && createPortal(
+        <button type="button" onClick={toggleSelectedSession}
+          aria-label={`${selectedEntry?.count ? 'Undo session for' : 'Log session for'} ${format(selectedDate, 'MMMM d, yyyy')}`}
+          title={selectedEntry?.count ? 'Undo selected session' : 'Log selected session'}
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-lift-text text-white shadow-sm active:bg-[#2E2E33]">
+          {selectedEntry?.count ? <Undo2 className="h-[22px] w-[22px]" strokeWidth={1.8} /> : <Plus className="h-[24px] w-[24px]" strokeWidth={1.8} />}
+        </button>, sessionDock,
+      )}
+
     </div>
   );
 }

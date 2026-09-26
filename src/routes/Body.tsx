@@ -1,12 +1,16 @@
-import { useState, useRef } from 'react';
+import { useContext, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { SessionDockContext } from '../components/sessionDock';
 import { useStore } from '../store/useStore';
 import { format, differenceInDays } from 'date-fns';
-import { Scale, TrendingUp, TrendingDown, Minus, Trash2 } from 'lucide-react';
+import { Check, Plus, Scale, TrendingUp, TrendingDown, Minus, Trash2 } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
 
 export function Body() {
+  const sessionDock = useContext(SessionDockContext);
   const { weightLogs, addWeightLog, deleteWeightLog } = useStore();
   const [weightInput, setWeightInput] = useState('');
+  const validWeight = Number.isFinite(Number(weightInput)) && Number(weightInput) > 0;
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleLog = (e?: React.FormEvent) => {
@@ -27,7 +31,7 @@ export function Body() {
   };
 
   const hasLogs = weightLogs.length > 0;
-  
+
   let currentTrend = 0;
   let totalChange = 0;
   let weeklyAvg = 0;
@@ -77,7 +81,7 @@ export function Body() {
             <p className="m-0 mt-0.5 text-[14px] text-lift-text-muted">Your measurements over time</p>
           </div>
         </div>
-        <Link 
+        <Link
           to="/"
           className="mt-1 rounded-full bg-lift-inset px-4 py-2.5 text-xs font-semibold text-lift-text-muted no-underline"
         >
@@ -91,13 +95,13 @@ export function Body() {
             <h2 className="text-[15px] font-semibold text-lift-text">Log today’s weight</h2>
             <div className="text-xs font-medium text-lift-text-dim">{format(new Date(), 'MMM d, yyyy')}</div>
           </div>
-          <form 
+          <form
             className="flex gap-2 w-full"
             onSubmit={(e) => { e.preventDefault(); handleLog(); }}
           >
-            <input 
+            <input
               ref={inputRef}
-              type="number" 
+              type="number"
               step="0.1"
               placeholder="e.g. 75.5"
               value={weightInput}
@@ -105,7 +109,7 @@ export function Body() {
               onKeyDown={handleKeyDown}
               className="min-w-0 flex-1 rounded-2xl border border-lift-border bg-white px-4 py-3 text-base font-semibold text-lift-text outline-none transition-colors focus:border-lift-accent-3"
             />
-            <button 
+            <button
               type="submit"
               disabled={!weightInput}
               className="shrink-0 rounded-xl border-0 bg-lift-accent-3 px-5 text-xs font-semibold text-white transition-opacity disabled:opacity-50"
@@ -147,22 +151,22 @@ export function Body() {
                   {weightLogs[weightLogs.length - 1].weight} kg
                 </div>
               </div>
-              
+
               <div className="relative w-full h-[100px] mb-2">
                 <svg viewBox="0 0 300 120" preserveAspectRatio="none" className="w-full h-full overflow-visible">
                   <line x1="0" y1="0" x2="300" y2="0" className="stroke-lift-border" strokeWidth="1" strokeDasharray="4 4" />
                   <line x1="0" y1="60" x2="300" y2="60" className="stroke-lift-border" strokeWidth="1" strokeDasharray="4 4" />
                   <line x1="0" y1="120" x2="300" y2="120" className="stroke-lift-border" strokeWidth="1" strokeDasharray="4 4" />
-                  
-                  <path 
-                    d={generateChartPath()} 
-                    fill="none" 
+
+                  <path
+                    d={generateChartPath()}
+                    fill="none"
                     className="stroke-lift-accent-3 drop-shadow-lg"
                     strokeWidth="3"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   />
-                  
+
                   {weightLogs.length > 1 && weightLogs.map((log, i) => {
                     const weights = weightLogs.map(l => l.weight);
                     const minW = Math.min(...weights) - 2;
@@ -190,7 +194,7 @@ export function Body() {
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="text-[15px] font-semibold text-lift-text">{log.weight} kg</div>
-                      <button 
+                      <button
                         onClick={() => deleteWeightLog(log.date)}
                         className="cursor-pointer border-none bg-transparent p-1 text-lift-text-dim transition-colors hover:text-red-600"
                       >
@@ -210,6 +214,22 @@ export function Body() {
           </div>
         )}
       </div>
+      {sessionDock && createPortal(
+        <button type="button"
+          onClick={() => {
+            if (validWeight) handleLog();
+            else {
+              inputRef.current?.scrollIntoView({ block: 'center' });
+              inputRef.current?.focus();
+            }
+          }}
+          aria-label={validWeight ? 'Save weight' : 'Add weight'}
+          title={validWeight ? 'Save weight' : 'Add weight'}
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-lift-text text-white shadow-sm active:bg-[#2E2E33]">
+          {validWeight ? <Check className="h-[24px] w-[24px]" strokeWidth={2} /> : <Plus className="h-[24px] w-[24px]" strokeWidth={1.8} />}
+        </button>, sessionDock,
+      )}
+
     </div>
   );
 }

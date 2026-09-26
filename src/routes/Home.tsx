@@ -23,6 +23,7 @@ export function Home() {
   const [scrollOffset, setScrollOffset] = useState(0);
   const [listUnlocked, setListUnlocked] = useState(false);
   const [geometry, setGeometry] = useState({ viewport: 0, overview: 0, exercises: 0, compactQueue: 0 });
+  const pendingSessionPosition = useRef<'anchor' | 'queue' | null>(null);
   const scrollSurfaceRef = useRef<HTMLDivElement | null>(null);
   const overviewRef = useRef<HTMLDivElement | null>(null);
   const queueHeaderRef = useRef<HTMLElement | null>(null);
@@ -68,8 +69,16 @@ export function Home() {
   const selectSession = (id: string | null) => {
     setSelectedSessionId(id);
     setListUnlocked(false);
-    setScrollOffset(0);
-    if (scrollSurfaceRef.current) scrollSurfaceRef.current.scrollTop = 0;
+    const surface = scrollSurfaceRef.current;
+    const offset = surface?.scrollTop ?? scrollOffset;
+    if (offset >= QUEUE_MORPH_SCROLL_DISTANCE / 2) {
+      pendingSessionPosition.current = offset >= exerciseAnchor - 2 ? 'anchor' : 'queue';
+      setScrollOffset(pendingSessionPosition.current === 'anchor' ? exerciseAnchor : QUEUE_MORPH_SCROLL_DISTANCE);
+    } else {
+      pendingSessionPosition.current = null;
+      setScrollOffset(0);
+      if (surface) surface.scrollTop = 0;
+    }
   };
 
   useLayoutEffect(() => {
@@ -90,6 +99,16 @@ export function Home() {
     measure();
     return () => observer.disconnect();
   }, []);
+
+  useLayoutEffect(() => {
+    const position = pendingSessionPosition.current;
+    const surface = scrollSurfaceRef.current;
+    if (!position || !surface || overviewRef.current?.offsetHeight !== geometry.overview) return;
+    const offset = position === 'anchor' ? exerciseAnchor : QUEUE_MORPH_SCROLL_DISTANCE;
+    surface.scrollTop = offset;
+    setScrollOffset(offset);
+    pendingSessionPosition.current = null;
+  }, [geometry.overview, exerciseAnchor, selectedSessionId, listUnlocked, session.id, showFallbackQueue]);
 
   useEffect(() => {
     const surface = scrollSurfaceRef.current;
