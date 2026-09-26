@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import { Link } from '@tanstack/react-router';
 import { Activity, ArrowLeftRight, Check, ChevronDown, ChevronUp, Dumbbell, Flame, Info, RotateCcw, X } from 'lucide-react';
@@ -17,6 +17,8 @@ export function Home() {
   const [showGuidelines, setShowGuidelines] = useState(false);
   const [showFallbackQueue, setShowFallbackQueue] = useState(false);
   const [queueCollapsed, setQueueCollapsed] = useState(false);
+  const queueCollapsedRef = useRef(queueCollapsed);
+  const exerciseScrollerRef = useRef<HTMLElement | null>(null);
 
   const today = new Date();
   const dateKey = format(today, 'yyyy-MM-dd');
@@ -37,6 +39,78 @@ export function Home() {
     : null;
   const gapDetected = daysSinceLast !== null && daysSinceLast > GAP_THRESHOLD_DAYS;
   const fallbackType = recommended.type === 'rotation' ? null : recommended.type;
+
+  useEffect(() => {
+    const scroller = exerciseScrollerRef.current;
+    if (!scroller) return;
+
+    let touchStartY = 0;
+    let touchStartScrollTop = 0;
+    let touchTransitioned = false;
+    let wheelTransitionLocked = false;
+    let wheelUnlockTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const setCollapsed = (collapsed: boolean) => {
+      queueCollapsedRef.current = collapsed;
+      setQueueCollapsed(collapsed);
+    };
+
+    const onTouchStart = (event: TouchEvent) => {
+      if (event.touches.length !== 1) return;
+      touchStartY = event.touches[0].clientY;
+      touchStartScrollTop = scroller.scrollTop;
+      touchTransitioned = false;
+    };
+
+    const onTouchMove = (event: TouchEvent) => {
+      if (touchTransitioned) {
+        event.preventDefault();
+        return;
+      }
+      if (event.touches.length !== 1) return;
+      const deltaY = touchStartY - event.touches[0].clientY;
+      if (Math.abs(deltaY) < 10) return;
+
+      const shouldCollapse = !queueCollapsedRef.current && deltaY > 0;
+      const shouldExpand = queueCollapsedRef.current && touchStartScrollTop <= 1 && deltaY < 0;
+      if (!shouldCollapse && !shouldExpand) return;
+
+      event.preventDefault();
+      touchTransitioned = true;
+      if (shouldCollapse) scroller.scrollTop = 0;
+      setCollapsed(shouldCollapse);
+    };
+
+    const onWheel = (event: WheelEvent) => {
+      if (wheelTransitionLocked) {
+        event.preventDefault();
+        if (wheelUnlockTimer) clearTimeout(wheelUnlockTimer);
+        wheelUnlockTimer = setTimeout(() => { wheelTransitionLocked = false; }, 180);
+        return;
+      }
+
+      const shouldCollapse = !queueCollapsedRef.current && event.deltaY > 0;
+      const shouldExpand = queueCollapsedRef.current && scroller.scrollTop <= 1 && event.deltaY < 0;
+      if (!shouldCollapse && !shouldExpand) return;
+
+      event.preventDefault();
+      if (shouldCollapse) scroller.scrollTop = 0;
+      setCollapsed(shouldCollapse);
+      wheelTransitionLocked = true;
+      wheelUnlockTimer = setTimeout(() => { wheelTransitionLocked = false; }, 180);
+    };
+
+    scroller.addEventListener('touchstart', onTouchStart, { passive: true });
+    scroller.addEventListener('touchmove', onTouchMove, { passive: false });
+    scroller.addEventListener('wheel', onWheel, { passive: false });
+
+    return () => {
+      scroller.removeEventListener('touchstart', onTouchStart);
+      scroller.removeEventListener('touchmove', onTouchMove);
+      scroller.removeEventListener('wheel', onWheel);
+      if (wheelUnlockTimer) clearTimeout(wheelUnlockTimer);
+    };
+  }, [session.id]);
 
   const openFallbackQueue = () => {
     setShowFallbackQueue(true);
@@ -193,16 +267,9 @@ export function Home() {
         <p className="mb-4 mt-0 text-[14px] leading-relaxed text-lift-text-muted">{session.keyFocus}</p>
 
         <section
+          ref={exerciseScrollerRef}
           key={session.id}
           aria-label={`${sessionName(session.label)} exercises`}
-          onScroll={(event) => {
-            const scrollTop = event.currentTarget.scrollTop;
-            setQueueCollapsed((collapsed) => {
-              if (!collapsed && scrollTop > 96) return true;
-              if (collapsed && scrollTop < 24) return false;
-              return collapsed;
-            });
-          }}
           className="min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-[22px] bg-lift-inset"
         >
           {session.exercises.map((exercise, index) => {
