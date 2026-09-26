@@ -158,7 +158,7 @@ export function Home() {
             <p className="m-0 truncate text-[13px] text-lift-text-muted">{focusName(session.tag)}</p>
           </div>
           {isPreview ? (
-            <button onClick={() => setSelectedSessionId(null)} className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-xl bg-lift-inset px-2 text-[11px] font-medium text-lift-text-muted">
+            <button onClick={() => setSelectedSessionId(null)} className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-full bg-lift-inset px-2 text-[11px] font-medium text-lift-text-muted">
               <RotateCcw className="h-3 w-3" /> Up next
             </button>
           ) : doneToday ? (
