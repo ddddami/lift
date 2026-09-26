@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { format } from 'date-fns';
+import { rotation } from '../data/plans';
 import { recordSessionCompleted } from '../data/training';
 import type { SessionType, TrainingState } from '../data/training';
 
@@ -18,12 +19,13 @@ export type WeightLog = {
 
 interface AppState {
   trainingState: TrainingState;
+  rotationCompleted: string[];
   doneExercises: Record<string, boolean>;
   activityMap: ActivityMap;
   weightLogs: WeightLog[];
 
   toggleExercise: (sessionId: string, exIdx: number, isDone: boolean) => void;
-  completeSession: (sessionType: SessionType, sessionLabel: string, exerciseCount: number) => void;
+  completeSession: (sessionType: SessionType, sessionId: string, sessionLabel: string, exerciseCount: number) => void;
   togglePastDate: (dateStr: string) => void;
   addWeightLog: (weight: number, dateStr?: string) => void;
   deleteWeightLog: (dateStr: string) => void;
@@ -39,6 +41,7 @@ export const useStore = create<AppState>()(
   persist(
     (set) => ({
       trainingState: emptyTrainingState,
+      rotationCompleted: [],
       doneExercises: {},
       activityMap: {},
       weightLogs: [],
@@ -51,13 +54,18 @@ export const useStore = create<AppState>()(
         }));
       },
 
-      completeSession: (sessionType, sessionLabel, exerciseCount) => {
+      completeSession: (sessionType, sessionId, sessionLabel, exerciseCount) => {
         const dateStr = format(new Date(), 'yyyy-MM-dd');
         set((state) => {
           if (state.trainingState.lastSessionDate === dateStr) return state;
 
           return {
             trainingState: recordSessionCompleted(state.trainingState, sessionType, dateStr),
+            rotationCompleted: sessionType === 'rotation'
+              ? state.trainingState.nextRotationIndex === rotation.length - 1
+                ? []
+                : [...new Set([...state.rotationCompleted, sessionId])]
+              : state.rotationCompleted,
             activityMap: {
               ...state.activityMap,
               [dateStr]: { count: exerciseCount, sessionLabel },

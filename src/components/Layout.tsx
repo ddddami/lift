@@ -8,12 +8,11 @@ export function Layout() {
         <Outlet />
       </main>
 
-      {/* Bottom Navigation */}
-      <nav className="shrink-0 bg-[#0A0A0A]/90 backdrop-blur-md border-t border-lift-border p-2 z-50">
+      <nav className="z-50 shrink-0 border-t border-lift-border bg-white/95 p-2 backdrop-blur-md">
         <div className="max-w-md mx-auto flex justify-around items-center">
           <Link
             to="/"
-            className="flex flex-col items-center p-2 rounded-xl text-lift-text-dim transition-all duration-200"
+            className="flex flex-col items-center rounded-xl p-2 text-lift-text-dim transition-all duration-200"
             activeProps={{
               className: 'text-lift-accent-3 !text-lift-accent-3',
             }}
@@ -23,9 +22,9 @@ export function Layout() {
           </Link>
           <Link
             to="/tracker"
-            className="flex flex-col items-center p-2 rounded-xl text-lift-text-dim transition-all duration-200"
+            className="flex flex-col items-center rounded-xl p-2 text-lift-text-dim transition-all duration-200"
             activeProps={{
-              className: 'text-lift-accent-4 !text-lift-accent-4',
+              className: 'text-lift-accent-3 !text-lift-accent-3',
             }}
           >
             <CalendarDays className="w-6 h-6 mb-1" />

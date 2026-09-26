@@ -1,210 +1,279 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { useStore } from '../store/useStore';
-import { overloadRules, rotation } from '../data/plans';
-import { getNextSession } from '../data/training';
-import { Check, ChevronDown, ChevronUp, BookOpen, X, Activity, CheckCircle2 } from 'lucide-react';
-import clsx from 'clsx';
 import { Link } from '@tanstack/react-router';
+import { Activity, Check, ChevronDown, ChevronUp, Dumbbell, Info, RotateCcw, X } from 'lucide-react';
+import clsx from 'clsx';
+import { fallbackA, fallbackB, overloadRules, rotation } from '../data/plans';
+import type { TrainingSession } from '../data/plans';
+import { GAP_THRESHOLD_DAYS, getNextSession } from '../data/training';
+import { useStore } from '../store/useStore';
+
+const catchUpSessions = [fallbackA, fallbackB];
 
 export function Home() {
-  const { trainingState, doneExercises, toggleExercise, completeSession } = useStore();
-  const [expandedEx, setExpandedEx] = useState<string | null>(null);
-  const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
-  const [showRotation, setShowRotation] = useState(false);
+  const { trainingState, rotationCompleted, doneExercises, toggleExercise, completeSession } = useStore();
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [expandedExercise, setExpandedExercise] = useState<string | null>(null);
+  const [showGuidelines, setShowGuidelines] = useState(false);
 
-  const { session, type } = getNextSession(trainingState, new Date());
-  const isCatchUp = type === 'fallbackA' || type === 'fallbackB';
+  const today = new Date();
+  const dateKey = format(today, 'yyyy-MM-dd');
+  const recommended = getNextSession(trainingState, today);
+  const inspectedSession = selectedSessionId
+    ? [...rotation, ...catchUpSessions].find((session) => session.id === selectedSessionId)
+    : undefined;
+  const session = inspectedSession ?? recommended.session;
+  const isPreview = selectedSessionId !== null && session.id !== recommended.session.id;
+  const daysSinceLast = trainingState.lastSessionDate
+    ? Math.floor((Date.parse(`${dateKey}T00:00:00Z`) - Date.parse(`${trainingState.lastSessionDate}T00:00:00Z`)) / 86_400_000)
+    : null;
+  const gapDetected = daysSinceLast !== null && daysSinceLast > GAP_THRESHOLD_DAYS;
+  const catchUpType = recommended.type === 'rotation' ? null : recommended.type;
 
-  const handleComplete = () => {
-    completeSession(type, session.label, session.exercises.length);
-    setExpandedEx(null);
+  const completeCurrentSession = () => {
+    if (isPreview) return;
+    completeSession(recommended.type, session.id, session.label, session.exercises.length);
+    setSelectedSessionId(null);
+    setExpandedExercise(null);
+  };
+
+  const getRotationStatus = (item: TrainingSession, index: number) => {
+    if (recommended.type === 'rotation' && recommended.session.id === item.id) return 'UP NEXT';
+    if (recommended.type !== 'rotation' && trainingState.nextRotationIndex === index) return 'AFTER CATCH-UP';
+    if (rotationCompleted.includes(item.id)) return 'DONE';
+    return 'IN QUEUE';
+  };
+
+  const getCatchUpStatus = (item: TrainingSession) => {
+    if (recommended.session.id === item.id && catchUpType) return 'RECOMMENDED';
+    if (gapDetected && trainingState.lastSessionType === 'fallbackA' && item.id === fallbackB.id) return 'NEXT IF NEEDED';
+    return 'AVAILABLE';
   };
 
   return (
-    <div className="flex flex-col h-full bg-lift-bg">
-      <div className="shrink-0 bg-lift-bg z-10">
-        <div className="p-5 pt-8 pb-4 flex justify-between items-start">
-          <div>
-            <div className="text-[10px] tracking-[0.2em] text-lift-text-dim mb-1.5 font-bold uppercase">
-              DAMILOLA · 60.3KG · 5'11"
-            </div>
-            <h1 className="text-2xl font-extrabold tracking-tight leading-[1.15] mb-1">
-              TODAY'S<br /><span className="text-lift-accent-3">SESSION.</span>
-            </h1>
-            <div className="text-[11px] text-lift-text-dim">
-              Your next workout, ready when you are.
-            </div>
+    <div className="flex flex-col h-full bg-lift-bg text-lift-text">
+      <header className="shrink-0 bg-lift-bg px-4 pt-6 pb-3">
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-2.5">
+            <Dumbbell className="w-5 h-5 text-lift-accent-3" strokeWidth={2.4} />
+            <span className="text-sm font-semibold tracking-tight">Lift Log</span>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => setIsInfoModalOpen(true)}
+              onClick={() => setShowGuidelines(true)}
               aria-label="Program guidelines"
-              className="bg-[#111] p-2.5 rounded-full text-[#AAA] hover:text-white transition-colors cursor-pointer border-none"
+              className="h-9 w-9 rounded-full bg-white border border-lift-border text-lift-text-muted inline-flex items-center justify-center"
             >
-              <BookOpen className="w-5 h-5" />
+              <Info className="w-4 h-4" />
             </button>
             <Link
               to="/body"
               aria-label="Body tracking"
-              className="bg-[#111] p-2.5 rounded-full text-white hover:text-[#CCC] transition-colors flex items-center justify-center border-none"
+              className="h-9 w-9 rounded-full bg-white border border-lift-border text-lift-text-muted inline-flex items-center justify-center"
             >
-              <Activity className="w-5 h-5" />
+              <Activity className="w-4 h-4" />
             </Link>
           </div>
         </div>
 
-        <div className="px-5 pt-1 pb-3">
-          <div
-            style={{
-              backgroundColor: `${session.accentColor}18`,
-              borderColor: `${session.accentColor}44`,
-              color: session.accentColor,
-            }}
-            className="inline-block border rounded px-2.5 py-1 text-[9px] font-bold tracking-[0.15em] mb-2"
-          >
-            {session.tag}
+        <section aria-label="Training queue" className="rounded-2xl bg-white border border-lift-border p-3.5 shadow-sm">
+          <div className="flex items-baseline justify-between px-0.5 mb-3">
+            <h1 className="text-[11px] font-bold tracking-[0.12em] uppercase text-lift-text-muted">Rotation queue</h1>
+            <span className="text-[10px] text-lift-text-dim">4 sessions · repeats</span>
           </div>
-          {isCatchUp && (
-            <span className="ml-2 inline-block bg-[#1A1A1A] border border-[#333] rounded px-2.5 py-1 text-[9px] font-bold tracking-wider text-[#AAA]">
-              CATCH-UP SESSION
-            </span>
-          )}
-          <div
-            style={{ borderLeftColor: session.accentColor }}
-            className="bg-lift-card border-l-4 py-2 px-3 rounded-r-md text-[11px] text-[#999] leading-relaxed"
-          >
-            {session.keyFocus}
-          </div>
-        </div>
-      </div>
+          <div className="flex gap-2.5 overflow-x-auto hide-scrollbar snap-x snap-mandatory -mx-1 px-1 pb-1">
+            {rotation.map((item, index) => {
+              const status = getRotationStatus(item, index);
+              const isSelected = session.id === item.id;
+              const isNext = status === 'UP NEXT' || status === 'AFTER CATCH-UP';
 
-      <div className="flex-1 overflow-y-auto overscroll-contain pb-8 px-5 pt-1">
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setSelectedSessionId(item.id === recommended.session.id ? null : item.id)}
+                  aria-pressed={isSelected}
+                  className={clsx(
+                    'snap-start shrink-0 w-[108px] min-h-[86px] rounded-xl border p-2.5 text-left transition-colors',
+                    isSelected ? 'border-lift-accent-3 bg-lift-accent-3-bg' : 'border-lift-border bg-lift-bg hover:border-[#B8C9BE]',
+                  )}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-semibold text-lift-text-dim">0{index + 1}</span>
+                    {status === 'DONE' && <Check className="w-3.5 h-3.5 text-lift-accent-3" strokeWidth={2.5} />}
+                    {isNext && <span className="w-1.5 h-1.5 rounded-full bg-lift-accent-3" />}
+                  </div>
+                  <div className="text-[11px] font-bold tracking-tight text-lift-text">{item.label}</div>
+                  <div className={clsx(
+                    'text-[8px] font-semibold tracking-[0.08em] mt-1.5 whitespace-nowrap',
+                    isNext ? 'text-lift-accent-3' : status === 'DONE' ? 'text-lift-text-dim' : 'text-lift-text-dim',
+                  )}>
+                    {status}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="border-t border-lift-border mt-3 pt-3">
+            <div className="flex items-center justify-between mb-2.5">
+              <div>
+                <div className="text-[10px] font-semibold text-lift-text">Catch-up sessions</div>
+                <div className="text-[9px] text-lift-text-dim mt-0.5">Suggested after a gap over {GAP_THRESHOLD_DAYS} days</div>
+              </div>
+              {gapDetected && (
+                <span className="text-[9px] font-semibold text-lift-accent-3 bg-lift-accent-3-bg rounded-full px-2 py-1">READY</span>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {catchUpSessions.map((item) => {
+                const isSelected = session.id === item.id;
+                const status = getCatchUpStatus(item);
+                const isRecommended = status === 'RECOMMENDED';
+
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setSelectedSessionId(item.id === recommended.session.id ? null : item.id)}
+                    aria-pressed={isSelected}
+                    className={clsx(
+                      'rounded-xl border px-2.5 py-2 text-left transition-colors',
+                      isSelected ? 'border-lift-accent-3 bg-lift-accent-3-bg' : 'border-lift-border bg-lift-bg hover:border-[#B8C9BE]',
+                    )}
+                  >
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-[10px] font-semibold text-lift-text">Catch-up {item.id === 'FA' ? 'A' : 'B'}</span>
+                      {isRecommended && <span className="w-1.5 h-1.5 rounded-full bg-lift-accent-3" />}
+                    </div>
+                    <div className={clsx('text-[8px] mt-1 font-semibold tracking-wide', isRecommended ? 'text-lift-accent-3' : 'text-lift-text-dim')}>
+                      {status}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        {gapDetected && (
+          <div role="status" className="mt-3 rounded-xl border border-lift-accent-3-border bg-lift-accent-3-bg px-3.5 py-2.5 flex items-center justify-between gap-3">
+            <div className="text-[10px] leading-relaxed text-lift-text-muted">
+              {daysSinceLast} days since your last session. <span className="font-semibold text-lift-text">Catch-up {recommended.session.id === 'FA' ? 'A' : 'B'} is next.</span>
+            </div>
+            <button
+              onClick={() => setSelectedSessionId(null)}
+              className="shrink-0 text-[9px] font-bold tracking-wide text-lift-accent-3 bg-transparent border-none p-0"
+            >
+              VIEW
+            </button>
+          </div>
+        )}
+      </header>
+
+      <main className="flex-1 overflow-y-auto overscroll-contain px-4 pb-8 pt-1">
+        <section className="pt-2 pb-3">
+          <div className="flex items-center justify-between gap-2 mb-1.5">
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-semibold tracking-tight text-lift-text">{session.label}</h2>
+              {isPreview && <span className="rounded-full bg-[#EEF0ED] px-2 py-1 text-[8px] font-semibold tracking-wider text-lift-text-muted">PREVIEW</span>}
+            </div>
+            {!isPreview && <span className="text-[9px] font-semibold tracking-[0.1em] text-lift-accent-3">{recommended.type === 'rotation' ? 'UP NEXT' : 'CATCH-UP'}</span>}
+          </div>
+          <div className="text-[10px] font-semibold tracking-[0.1em] uppercase text-lift-text-muted mb-2">{session.tag}</div>
+          <p className="text-[11px] leading-relaxed text-lift-text-muted m-0">{session.keyFocus}</p>
+          {isPreview && (
+            <button
+              onClick={() => setSelectedSessionId(null)}
+              className="mt-2 inline-flex items-center gap-1.5 text-[10px] font-semibold text-lift-accent-3 bg-transparent border-none p-0"
+            >
+              <RotateCcw className="w-3 h-3" /> Return to up next
+            </button>
+          )}
+        </section>
+
         <div className="flex flex-col gap-2">
           {session.exercises.map((exercise, index) => {
             const key = `${session.id}-${index}`;
-            const isDone = !!doneExercises[`${format(new Date(), 'yyyy-MM-dd')}-${key}`];
-            const isExpanded = expandedEx === key;
+            const isDone = !!doneExercises[`${dateKey}-${key}`];
+            const isExpanded = expandedExercise === key;
 
             return (
-              <div
-                key={key}
-                style={{ borderColor: isExpanded ? `${session.accentColor}55` : (isDone ? '#1A3A1A' : '#1A1A1A') }}
-                className={clsx(
-                  'border rounded-xl overflow-hidden transition-all duration-300',
-                  isDone ? 'bg-lift-success-bg' : 'bg-lift-card',
-                )}
-              >
-                <div
-                  onClick={() => toggleExercise(session.id, index, !isDone)}
-                  className="p-3.5 cursor-pointer flex justify-between items-center"
-                >
-                  <div className="flex-1">
-                    <div className={clsx(
-                      'text-[13px] font-semibold mb-1 transition-colors duration-200',
-                      isDone ? 'text-lift-success-text line-through' : 'text-[#EEE]',
-                    )}>
+              <article key={key} className={clsx('rounded-xl border bg-white transition-colors', isDone ? 'border-lift-success-border' : 'border-lift-border')}>
+                <div className="flex items-center gap-3 px-3.5 py-3">
+                  <button
+                    onClick={() => toggleExercise(session.id, index, !isDone)}
+                    disabled={isPreview}
+                    aria-label={`${isDone ? 'Unmark' : 'Mark'} ${exercise.name} complete`}
+                    className={clsx(
+                      'w-5 h-5 shrink-0 rounded-full border inline-flex items-center justify-center',
+                      isDone ? 'bg-lift-success-icon border-lift-success-icon text-white' : 'bg-white border-[#D5DAD6] text-transparent',
+                      isPreview && 'cursor-not-allowed opacity-60',
+                    )}
+                  >
+                    <Check className="w-3 h-3" strokeWidth={3} />
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <div className={clsx('text-[12px] font-semibold tracking-tight', isDone ? 'text-lift-text-muted line-through' : 'text-lift-text')}>
                       {exercise.name}
                     </div>
-                    <div className="flex gap-1.5">
-                      <span className="text-[10px] bg-[#1A1A1A] px-2 py-0.5 rounded text-[#777]">{exercise.sets} sets</span>
-                      <span style={{ color: session.accentColor }} className="text-[10px] bg-[#1A1A1A] px-2 py-0.5 rounded font-semibold">
-                        {exercise.reps} reps
-                      </span>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <span className="text-[9px] text-lift-text-muted">{exercise.sets} sets</span>
+                      <span className="w-0.5 h-0.5 rounded-full bg-[#B2B8B3]" />
+                      <span className="text-[9px] font-medium text-lift-text-muted">{exercise.reps} reps</span>
                     </div>
                   </div>
-                  <div className="flex gap-2.5 items-center">
-                    <div className={clsx(
-                      'w-[24px] h-[24px] rounded-full flex items-center justify-center shrink-0 transition-colors duration-200',
-                      isDone ? 'bg-lift-success-icon border-none text-[#EEE]' : 'bg-transparent border border-[#333] text-transparent',
-                    )}>
-                      <Check className="w-3.5 h-3.5" strokeWidth={3} />
-                    </div>
-                    <button
-                      aria-label={isExpanded ? `Hide ${exercise.name} note` : `Show ${exercise.name} note`}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setExpandedEx(isExpanded ? null : key);
-                      }}
-                      className="text-[#555] p-2 -mr-2 cursor-pointer bg-transparent border-none hover:text-[#EEE] transition-colors"
-                    >
-                      {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => setExpandedExercise(isExpanded ? null : key)}
+                    aria-label={`${isExpanded ? 'Hide' : 'Show'} ${exercise.name} note`}
+                    className="w-8 h-8 shrink-0 inline-flex items-center justify-center rounded-full text-lift-text-dim bg-transparent border-none"
+                  >
+                    {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </button>
                 </div>
-                {isExpanded && (
-                  <div className="px-3.5 pb-3 text-[11px] text-[#666] leading-relaxed border-t border-[#1A1A1A] pt-2.5 -mt-0.5">
-                    {exercise.note}
-                  </div>
-                )}
-              </div>
+                {isExpanded && <p className="m-0 border-t border-lift-border px-3.5 py-3 text-[10px] leading-relaxed text-lift-text-muted">{exercise.note}</p>}
+              </article>
             );
           })}
         </div>
 
         <button
-          onClick={handleComplete}
-          className="w-full mt-5 p-4 bg-lift-accent-3 text-black rounded-xl border-none cursor-pointer font-extrabold text-xs tracking-widest flex items-center justify-center gap-2 hover:brightness-110 active:scale-[0.99] transition-all"
+          onClick={completeCurrentSession}
+          disabled={isPreview}
+          className={clsx(
+            'w-full mt-4 h-12 rounded-xl font-semibold text-[11px] tracking-wide border transition-colors',
+            isPreview
+              ? 'bg-[#EEF0ED] text-lift-text-dim border-transparent cursor-not-allowed'
+              : 'bg-lift-accent-3 text-white border-lift-accent-3 hover:bg-[#176F4A]',
+          )}
         >
-          <CheckCircle2 className="w-4 h-4" />
-          MARK SESSION COMPLETE
+          {isPreview ? 'PREVIEW ONLY · RETURN TO UP NEXT TO COMPLETE' : 'MARK SESSION COMPLETE'}
         </button>
+      </main>
 
-        <button
-          onClick={() => setShowRotation((shown) => !shown)}
-          className="w-full mt-5 p-3 bg-transparent border-none text-[#666] font-bold text-[10px] tracking-[0.18em] cursor-pointer"
-        >
-          {showRotation ? 'HIDE' : 'VIEW'} FULL ROTATION
-        </button>
-
-        {showRotation && (
-          <div className="flex flex-col gap-2 mb-5" aria-label="Full rotation">
-            {rotation.map((item, index) => (
-              <div key={item.id} className="bg-lift-card border border-lift-border rounded-lg p-3 flex items-center gap-3">
-                <div className="text-[10px] font-black" style={{ color: item.accentColor }}>0{index + 1}</div>
-                <div>
-                  <div className="text-xs text-[#DDD] font-bold">{item.label}</div>
-                  <div className="text-[9px] text-[#666]">{item.tag}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {isInfoModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-lift-bg border border-[#222] w-full max-w-md rounded-2xl overflow-hidden shadow-2xl max-h-[85vh] flex flex-col">
-            <div className="p-5 border-b border-[#1A1A1A] flex justify-between items-center shrink-0">
-              <h2 className="text-lg font-black tracking-tight">PROGRAM GUIDELINES</h2>
-              <button
-                onClick={() => setIsInfoModalOpen(false)}
-                aria-label="Close program guidelines"
-                className="text-[#666] hover:text-white bg-transparent border-none p-1 cursor-pointer"
-              >
-                <X className="w-6 h-6" />
+      {showGuidelines && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/35 p-4" onClick={() => setShowGuidelines(false)}>
+          <div className="bg-white border border-lift-border w-full max-w-md rounded-2xl overflow-hidden shadow-2xl max-h-[85vh] flex flex-col" onClick={(event) => event.stopPropagation()}>
+            <div className="p-5 border-b border-lift-border flex justify-between items-center shrink-0">
+              <h2 className="text-base font-semibold tracking-tight text-lift-text">Training notes</h2>
+              <button onClick={() => setShowGuidelines(false)} aria-label="Close training notes" className="text-lift-text-muted bg-transparent border-none p-1">
+                <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-5 overflow-y-auto">
-              <div className="mb-6 bg-lift-card border border-lift-accent-4/30 rounded-lg p-3">
-                <div className="text-[10px] font-bold mb-1 tracking-widest text-lift-accent-4">ROTATION + CATCH-UP SESSIONS</div>
-                <div className="text-[10px] text-lift-text-dim leading-relaxed">
-                  Research favors training each muscle about twice a week. This rotation continues at your own pace, with catch-up sessions after a longer gap.
-                </div>
+              <div className="rounded-xl border border-lift-border bg-lift-bg p-4 mb-4">
+                <div className="text-[10px] font-semibold text-lift-text mb-1">Rotation and catch-up</div>
+                <p className="text-[11px] text-lift-text-muted leading-relaxed m-0">
+                  The four-session rotation keeps its place. After more than {GAP_THRESHOLD_DAYS} days without a completed session, catch-up sessions alternate until your regular cadence resumes.
+                </p>
               </div>
-              <div className="mb-6 bg-[#111] border border-[#222] rounded-xl p-4">
-                <div className="text-[9px] tracking-[0.2em] text-[#777] mb-3 font-bold uppercase">PROGRESSIVE OVERLOAD — QUICK RULES</div>
-                {overloadRules.map((rule) => (
-                  <div key={rule.rule} className="flex justify-between gap-2 mb-2 last:mb-0">
-                    <div className="text-[11px] text-[#888] font-semibold shrink-0">{rule.rule}</div>
-                    <div className="text-[11px] text-[#777] text-right">{rule.add}</div>
-                  </div>
-                ))}
-              </div>
-              <div className="bg-[#0A1A0F] border border-lift-success-border rounded-xl p-3.5">
-                <div className="text-[10px] text-[#4A9A6A] font-bold mb-1">CONSISTENCY OVER PERFECTION</div>
-                <div className="text-[11px] text-[#777] leading-relaxed">
-                  Complete the next session when it fits your schedule. The rotation picks up where you left off.
+              <div className="rounded-xl border border-lift-border bg-white p-4">
+                <div className="text-[10px] font-semibold text-lift-text mb-3">Progressive overload</div>
+                <div className="space-y-2.5">
+                  {overloadRules.map((rule) => (
+                    <div key={rule.rule} className="flex justify-between gap-3 text-[10px]">
+                      <span className="font-medium text-lift-text-muted">{rule.rule}</span>
+                      <span className="text-lift-text-dim text-right">{rule.add}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
