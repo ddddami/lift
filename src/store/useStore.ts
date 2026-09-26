@@ -32,7 +32,7 @@ interface AppState {
 
   toggleExercise: (sessionId: string, exIdx: number, isDone: boolean) => void;
   completeSession: (sessionType: SessionType, sessionId: string, sessionLabel: string, exerciseCount: number) => void;
-  undoSessionCompletion: () => void;
+  undoSessionCompletion: (sessionId?: string, date?: string) => void;
   togglePastDate: (dateStr: string) => void;
   addWeightLog: (weight: number, dateStr?: string) => void;
   deleteWeightLog: (dateStr: string) => void;
@@ -88,14 +88,28 @@ export const useStore = create<AppState>()(
         });
       },
 
-      undoSessionCompletion: () => {
-        const dateStr = format(new Date(), 'yyyy-MM-dd');
+      undoSessionCompletion: (sessionId, date) => {
         set((state) => {
-          if (state.trainingState.lastSessionDate !== dateStr) return state;
+          const programme = [...rotation, fallbackA, fallbackB].find((item) => item.id === sessionId);
+          const dateStr = date ?? (programme
+            ? Object.keys(state.activityMap).filter((day) => state.activityMap[day]?.count > 0 && state.activityMap[day].sessionLabel === programme.label).sort().at(-1)
+            : state.trainingState.lastSessionDate);
+          if (!dateStr || (programme && state.activityMap[dateStr]?.sessionLabel !== programme.label)) return state;
+          const activityMap = { ...state.activityMap };
+          if (state.trainingState.lastSessionDate !== dateStr) {
+            delete activityMap[dateStr];
+            const completedAgain = programme && Object.entries(activityMap).some(([day, entry]) => day > dateStr && entry.count > 0 && entry.sessionLabel === programme.label);
+            return {
+              activityMap,
+              rotationCompleted: programme && !completedAgain
+                ? state.rotationCompleted.filter((id) => id !== programme.id)
+                : state.rotationCompleted,
+              completionUndo: null,
+            };
+          }
           const previous = state.completionUndo?.date === dateStr
             ? state.completionUndo
             : recoverPreviousCompletion(state, dateStr);
-          const activityMap = { ...state.activityMap };
           if (previous.activityEntry) activityMap[dateStr] = previous.activityEntry;
           else delete activityMap[dateStr];
           return {

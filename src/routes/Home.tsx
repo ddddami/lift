@@ -57,10 +57,12 @@ export function Home() {
   const isProactiveFallback = recommended.type === 'rotation' && selectedFallback;
   const isPreview = selectedSessionId !== null && session.id !== recommended.session.id && !isProactiveFallback;
   const doneToday = trainingState.lastSessionDate === dateKey;
-  const completedSessionId = doneToday
-    ? [...rotation, ...fallbackSessions].find((item) => item.label === activityMap[dateKey]?.sessionLabel)?.id
+  const latestCompletionDate = trainingState.lastSessionDate;
+  const completedSessionId = latestCompletionDate
+    ? [...rotation, ...fallbackSessions].find((item) => item.label === activityMap[latestCompletionDate]?.sessionLabel)?.id
     : undefined;
-  const canUndo = doneToday && session.id === completedSessionId;
+  const undoDate = Object.keys(activityMap).filter((day) => activityMap[day]?.count > 0 && activityMap[day].sessionLabel === session.label).sort().at(-1);
+  const canUndo = !!undoDate && (selectedSessionId !== null || session.id === completedSessionId);
   const recentDates = Object.entries(activityMap).filter(([, entry]) => entry?.count > 0).map(([date]) => date).sort();
   const sessionRun = getCurrentSessionRun(recentDates, today);
   const daysSinceLast = trainingState.lastSessionDate
@@ -164,13 +166,13 @@ export function Home() {
 
   const undoCurrentSession = () => {
     if (!canUndo) return;
-    undoSessionCompletion();
+    undoSessionCompletion(session.id, undoDate);
     selectSession(null);
     setExpandedExercise(null);
   };
 
   const getRotationStatus = (item: TrainingSession, index: number) => {
-    if (item.id === completedSessionId) return 'Done';
+    if (item.id === completedSessionId && latestCompletionDate === dateKey) return 'Done';
     if (recommended.type === 'rotation' && recommended.session.id === item.id) return 'Next';
     if (recommended.type !== 'rotation' && trainingState.nextRotationIndex === index) return 'Then';
     if (rotationCompleted.includes(item.id)) return 'Done';
@@ -178,7 +180,7 @@ export function Home() {
   };
 
   const getFallbackStatus = (item: TrainingSession) => {
-    if (item.id === completedSessionId) return 'Done';
+    if (item.id === completedSessionId && latestCompletionDate === dateKey) return 'Done';
     if (recommended.session.id === item.id && fallbackType) return 'Suggested';
     if (item.id === proactiveFallback.id) return gapDetected ? 'Suggested' : 'Next if needed';
     return 'Available';
@@ -302,7 +304,7 @@ export function Home() {
                 <p className="m-0 truncate text-[13px] text-lift-text-muted">{focusName(session.tag)}</p>
               </div>
               {canUndo ? (
-                <span className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-lift-success-bg px-3 py-2 text-xs font-semibold text-lift-success-text"><Check className="h-3.5 w-3.5" /> Done today</span>
+                <span className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-lift-success-bg px-3 py-2 text-xs font-semibold text-lift-success-text"><Check className="h-3.5 w-3.5" /> {undoDate === dateKey ? 'Done today' : `Done ${format(new Date(`${undoDate}T12:00:00`), 'MMM d')}`}</span>
               ) : isPreview ? (
                 <button onClick={() => selectSession(null)} className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-full bg-lift-inset px-2 text-[11px] font-medium text-lift-text-muted">
                   <RotateCcw className="h-3 w-3" /> Up next
@@ -325,7 +327,7 @@ export function Home() {
               return (
                 <article key={key} className={clsx('mx-4', index > 0 && 'border-t border-lift-border')}>
                   <div className="flex items-center gap-1">
-                    <button type="button" onClick={() => toggleExercise(session.id, index, !isDone)} disabled={isPreview || doneToday} aria-pressed={isDone} aria-label={`${isDone ? 'Unmark' : 'Mark'} ${exercise.name} complete`}
+                    <button type="button" onClick={() => toggleExercise(session.id, index, !isDone)} disabled={isPreview || doneToday || canUndo} aria-pressed={isDone} aria-label={`${isDone ? 'Unmark' : 'Mark'} ${exercise.name} complete`}
                       className={clsx('flex min-h-[68px] min-w-0 flex-1 items-center gap-3 py-2.5 text-left', (isPreview || doneToday) && 'cursor-not-allowed opacity-60')}>
                       <span className={clsx('inline-flex h-[23px] w-[23px] shrink-0 items-center justify-center rounded-full border transition-colors', isDone ? 'border-lift-accent-3 bg-lift-accent-3 text-white' : 'border-lift-border bg-white text-transparent')}><Check className="h-3.5 w-3.5" strokeWidth={2.5} /></span>
                       <span className="min-w-0 flex-1">
@@ -344,7 +346,6 @@ export function Home() {
             </div>
           </section>
 
-
         </main>
       </div>
       <div aria-hidden="true" style={{ height: scrollDistance }} />
@@ -355,7 +356,7 @@ export function Home() {
           onClick={canUndo ? undoCurrentSession : completeCurrentSession}
           disabled={!canUndo && (isPreview || doneToday)}
           aria-label={canUndo ? `Undo ${sessionName(session.label)} completion` : isPreview ? 'Preview — select the next session to complete' : doneToday ? 'Workout already logged today' : 'Complete session'}
-          title={canUndo ? 'Undo completion' : isPreview ? 'Preview' : doneToday ? 'Workout already logged today' : 'Complete session'}
+          title={canUndo ? `Undo ${sessionName(session.label)} · ${format(new Date(`${undoDate}T12:00:00`), 'MMM d')}` : isPreview ? 'Preview' : doneToday ? 'Workout already logged today' : 'Complete session'}
           className="flex h-14 w-14 items-center justify-center rounded-full bg-lift-text text-white shadow-sm transition-colors active:bg-[#2E2E33] disabled:bg-lift-inset disabled:text-lift-text-dim disabled:shadow-none"
         >
           {canUndo ? <Undo2 className="h-[22px] w-[22px]" strokeWidth={1.8} /> : <Check className="h-[24px] w-[24px]" strokeWidth={2} />}

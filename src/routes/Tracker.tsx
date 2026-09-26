@@ -9,6 +9,7 @@ import {
 import clsx from 'clsx';
 import { Dumbbell, ArrowUpRight, Undo2, Check, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
+import { rotation, fallbackA, fallbackB } from '../data/plans';
 import { getNextSession } from '../data/training';
 
 export function Tracker() {
@@ -50,10 +51,9 @@ export function Tracker() {
   };
 
   const toggleSelectedSession = () => {
-    if (selectedFuture) return;
-    if (selectedEntry?.count && selectedKey === todayKey && trainingState.lastSessionDate === selectedKey) {
-      undoSessionCompletion();
-    } else togglePastDate(selectedKey);
+    const programme = [...rotation, fallbackA, fallbackB].find((item) => item.label === selectedEntry?.sessionLabel);
+    if (selectedEntry?.count && programme) undoSessionCompletion(programme.id, selectedKey);
+    else if (!selectedFuture) togglePastDate(selectedKey);
   };
 
   const intensityClass = (count: number) => {
@@ -76,12 +76,14 @@ export function Tracker() {
               <p className="m-0 mt-0.5 text-[14px] text-lift-text-muted">Your training, over time</p>
             </div>
           </div>
+        </div>
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="m-0 text-[14px] font-semibold">This week</h2>
           <button type="button" onClick={() => setShowTotals((shown) => !shown)} aria-expanded={showTotals} aria-controls="progress-totals"
-            className="inline-flex min-h-11 items-center gap-1 px-2 text-[11px] font-medium text-lift-text-muted">
+            className="inline-flex min-h-8 items-center gap-1 px-1 text-[11px] font-medium text-lift-text-muted">
             Totals {showTotals ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
           </button>
         </div>
-        <h2 className="mb-2 mt-0 text-[14px] font-semibold">This week</h2>
         <div className="flex justify-between gap-1.5">
           {weekDays.map((day) => {
             const key = format(day, 'yyyy-MM-dd');
@@ -97,6 +99,12 @@ export function Tracker() {
             );
           })}
         </div>
+        <div id="progress-totals" hidden={!showTotals} className="mt-3 px-1 text-xs text-lift-text-muted">
+          <div className="flex items-center justify-between">
+            <span><strong className="font-semibold text-lift-text">{monthlyWorkouts}</strong> this month</span>
+            <span><strong className="font-semibold text-lift-text">{totalWorkouts}</strong> all time</span>
+          </div>
+        </div>
       </header>
 
       <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pt-2 pb-5">
@@ -105,13 +113,6 @@ export function Tracker() {
           <span className="min-w-0 truncate"><span className="text-lift-text-muted">{nextType !== 'rotation' ? 'Suggested' : 'Next'}</span><span className="mx-2 text-lift-text-dim">·</span><span className="font-semibold">{formatLabel(nextSession.label)}</span></span>
           <ArrowUpRight aria-hidden="true" className="h-4 w-4 shrink-0" />
         </Link>
-
-        <div id="progress-totals" hidden={!showTotals} className="mb-4 px-1 text-xs text-lift-text-muted">
-          <div className="flex items-center gap-4">
-            <span><strong className="font-semibold text-lift-text">{monthlyWorkouts}</strong> this month</span>
-            <span><strong className="font-semibold text-lift-text">{totalWorkouts}</strong> all time</span>
-          </div>
-        </div>
 
         <section ref={selectedSessionRef} aria-label="Selected session" aria-live="polite" className="mb-4 rounded-[22px] bg-lift-inset p-4">
           <div className="mb-3 flex items-center justify-between gap-2">
@@ -164,7 +165,7 @@ export function Tracker() {
         </section>
       </main>
       {sessionDock && createPortal(
-        <button type="button" onClick={toggleSelectedSession} disabled={selectedFuture}
+        <button type="button" onClick={toggleSelectedSession} disabled={selectedFuture && !selectedEntry?.count}
           aria-label={`${selectedEntry?.count ? 'Undo session for' : 'Log session for'} ${format(selectedDate, 'MMMM d, yyyy')}`}
           title={selectedFuture ? 'Select today or a past date to log a session' : selectedEntry?.count ? 'Undo selected session' : 'Log selected session'}
           className="flex h-14 w-14 items-center justify-center rounded-full bg-lift-text text-white shadow-sm active:bg-[#2E2E33] disabled:bg-lift-inset disabled:text-lift-text-dim disabled:shadow-none">
