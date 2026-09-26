@@ -1,4 +1,4 @@
-import { useContext, useState } from 'react';
+import { useContext, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { SessionDockContext } from '../components/sessionDock';
 import { useStore } from '../store/useStore';
@@ -17,6 +17,7 @@ export function Tracker() {
   const [showTotals, setShowTotals] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const selectedSessionRef = useRef<HTMLElement | null>(null);
   const today = new Date();
   const todayKey = format(today, 'yyyy-MM-dd');
   const monthStart = startOfMonth(currentMonth);
@@ -31,12 +32,21 @@ export function Tracker() {
   const monthlyWorkouts = entries.filter(([date]) => date.startsWith(format(today, 'yyyy-MM'))).length;
   const selectedKey = format(selectedDate, 'yyyy-MM-dd');
   const selectedEntry = activityMap[selectedKey];
+  const programmeLabel = selectedEntry?.sessionLabel && selectedEntry.sessionLabel.toLowerCase() !== 'workout logged'
+    ? formatLabel(selectedEntry.sessionLabel)
+    : null;
   const selectedFuture = selectedKey > todayKey;
   const { session: nextSession, type: nextType } = getNextSession(trainingState, today);
 
   const selectDate = (day: Date) => {
     setSelectedDate(day);
     setCurrentMonth(day);
+    requestAnimationFrame(() => {
+      selectedSessionRef.current?.scrollIntoView({
+        block: 'nearest',
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+      });
+    });
   };
 
   const toggleSelectedSession = () => {
@@ -103,14 +113,20 @@ export function Tracker() {
           </div>
         </div>
 
-        <section aria-label="Selected session" className="mb-4 rounded-[22px] bg-lift-inset p-4">
+        <section ref={selectedSessionRef} aria-label="Selected session" aria-live="polite" className="mb-4 rounded-[22px] bg-lift-inset p-4">
           <div className="mb-3 flex items-center justify-between gap-2">
             <h2 className="m-0 text-[14px] font-semibold">{format(selectedDate, 'EEE, MMM d')}</h2>
-            {selectedEntry?.count ? <span className="text-xs text-lift-text-muted">{selectedEntry.count} exercises</span> : null}
+            {selectedEntry?.count && programmeLabel ? <span className="text-xs text-lift-text-muted">{selectedEntry.count} exercises</span> : null}
           </div>
           {selectedEntry?.count ? (
             <div className="flex items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-2"><Check className="h-4 w-4 shrink-0 text-lift-success-text" /><span className="truncate text-[13px] font-medium">{formatLabel(selectedEntry.sessionLabel ?? 'Workout logged')}</span></div>
+              <div className="flex min-w-0 items-center gap-2">
+                <Check className="h-4 w-4 shrink-0 text-lift-success-text" />
+                <div className="min-w-0">
+                  <div className="text-[13px] font-medium">{programmeLabel ?? 'Workout logged'}</div>
+                  <div className="mt-0.5 text-xs text-lift-text-muted">{programmeLabel ? 'Programme completed' : 'No programme recorded'}</div>
+                </div>
+              </div>
               <button onClick={toggleSelectedSession} className="min-h-11 rounded-full bg-white px-3 text-xs font-semibold text-lift-text-muted">Undo</button>
             </div>
           ) : selectedFuture ? (
