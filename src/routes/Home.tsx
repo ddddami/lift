@@ -36,7 +36,11 @@ export function Home() {
 
   const beginScrollGesture = () => {
     if (showGuidelines || geometry.viewport === 0) return;
-    setListUnlocked((scrollSurfaceRef.current?.scrollTop ?? 0) >= exerciseAnchor - 1);
+    const surface = scrollSurfaceRef.current;
+    if (!surface) return;
+    flushSync(() => setListUnlocked(surface.scrollTop >= exerciseAnchor - 2));
+    // Publish the new extent before the browser chooses this gesture's scroll target.
+    surface.getBoundingClientRect();
   };
 
   const today = new Date();
@@ -96,10 +100,11 @@ export function Home() {
       if (!wheelActive) {
         wheelActive = true;
         // Update the native scroll extent before this wheel event's default action.
-        flushSync(() => setListUnlocked(surface.scrollTop >= exerciseAnchor - 1));
+        flushSync(() => setListUnlocked(surface.scrollTop >= exerciseAnchor - 2));
+        surface.getBoundingClientRect();
       }
       if (idleTimer) clearTimeout(idleTimer);
-      idleTimer = setTimeout(() => { wheelActive = false; }, 300);
+      idleTimer = setTimeout(() => { wheelActive = false; }, 120);
     };
 
     surface.addEventListener('wheel', onWheel, { passive: true });
@@ -158,7 +163,6 @@ export function Home() {
       onScroll={(event) => {
         const offset = Math.min(scrollDistance, Math.max(0, event.currentTarget.scrollTop));
         setScrollOffset(offset);
-        if (offset < exerciseAnchor - 1) setListUnlocked(false);
       }}
       className={clsx('relative h-full min-h-0 overscroll-contain bg-white text-lift-text [overflow-anchor:none]', showGuidelines ? 'overflow-hidden' : 'overflow-y-auto')}
     >
