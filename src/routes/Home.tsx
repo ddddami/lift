@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { Link } from '@tanstack/react-router';
-import { Activity, Check, ChevronDown, ChevronUp, Dumbbell, Flame, Info, RotateCcw, X } from 'lucide-react';
+import { Activity, ArrowLeftRight, Check, ChevronDown, ChevronUp, Dumbbell, Flame, Info, RotateCcw, X } from 'lucide-react';
 import clsx from 'clsx';
 import { fallbackA, fallbackB, overloadRules, rotation } from '../data/plans';
 import type { TrainingSession } from '../data/plans';
@@ -24,7 +24,10 @@ export function Home() {
     ? [...rotation, ...fallbackSessions].find((session) => session.id === selectedSessionId)
     : undefined;
   const session = inspectedSession ?? recommended.session;
-  const isPreview = selectedSessionId !== null && session.id !== recommended.session.id;
+  const selectedFallback = session.id === fallbackA.id || session.id === fallbackB.id;
+  const proactiveFallback = trainingState.lastSessionType === 'fallbackA' ? fallbackB : fallbackA;
+  const isProactiveFallback = recommended.type === 'rotation' && selectedFallback;
+  const isPreview = selectedSessionId !== null && session.id !== recommended.session.id && !isProactiveFallback;
   const doneToday = trainingState.lastSessionDate === dateKey;
   const recentDates = Object.entries(activityMap).filter(([, entry]) => entry?.count > 0).map(([date]) => date).sort();
   const sessionRun = getCurrentSessionRun(recentDates, today);
@@ -34,9 +37,17 @@ export function Home() {
   const gapDetected = daysSinceLast !== null && daysSinceLast > GAP_THRESHOLD_DAYS;
   const fallbackType = recommended.type === 'rotation' ? null : recommended.type;
 
+  const openFallbackQueue = () => {
+    setShowFallbackQueue(true);
+    setSelectedSessionId(recommended.type === 'rotation' ? proactiveFallback.id : recommended.session.id);
+  };
+
   const completeCurrentSession = () => {
     if (isPreview || doneToday) return;
-    completeSession(recommended.type, session.id, session.label, session.exercises.length);
+    const sessionType = selectedFallback
+      ? session.id === fallbackA.id ? 'fallbackA' : 'fallbackB'
+      : recommended.type;
+    completeSession(sessionType, session.id, session.label, session.exercises.length);
     setSelectedSessionId(null);
     setExpandedExercise(null);
   };
@@ -50,7 +61,7 @@ export function Home() {
 
   const getFallbackStatus = (item: TrainingSession) => {
     if (recommended.session.id === item.id && fallbackType) return 'Suggested';
-    if (gapDetected && trainingState.lastSessionType === 'fallbackA' && item.id === fallbackB.id) return 'Next';
+    if (item.id === proactiveFallback.id) return gapDetected ? 'Suggested' : 'Next if needed';
     return 'Available';
   };
 
@@ -82,30 +93,37 @@ export function Home() {
             <button
               type="button"
               onClick={() => {
-                setShowFallbackQueue((shown) => !shown);
-                setSelectedSessionId(null);
+                if (showFallbackQueue) {
+                  setShowFallbackQueue(false);
+                  setSelectedSessionId(null);
+                } else {
+                  openFallbackQueue();
+                }
               }}
               aria-pressed={showFallbackQueue}
               className={clsx('inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition-colors', gapDetected && !showFallbackQueue ? 'bg-lift-notice-bg text-lift-notice-text' : 'bg-lift-inset text-lift-text-muted')}
             >
               {showFallbackQueue ? 'Rotation' : gapDetected ? 'Fallback ready' : 'Fallbacks'}
-              <RotateCcw className="h-3 w-3" />
+              <ArrowLeftRight className="h-3.5 w-3.5" />
             </button>
           </div>
           {showFallbackQueue ? (
-            <div className="grid grid-cols-2 gap-1.5 rounded-[20px] bg-lift-inset p-1.5">
-              {fallbackSessions.map((item) => {
-                const selected = session.id === item.id;
-                const status = getFallbackStatus(item);
-                return (
-                  <button key={item.id} onClick={() => setSelectedSessionId(item.id === recommended.session.id ? null : item.id)} aria-pressed={selected}
-                    className={clsx('flex min-h-[66px] min-w-0 flex-col items-start justify-between rounded-2xl px-3 py-2.5 text-left transition-colors', selected ? 'bg-lift-text text-white shadow-sm' : 'bg-transparent text-lift-text')}>
-                    <span className="text-[13px] font-semibold">Fallback {item.id === 'FA' ? 'A' : 'B'}</span>
-                    <span className={clsx('text-[11px] font-medium', selected ? 'text-white/70' : status === 'Suggested' ? 'text-lift-success-text' : 'text-lift-text-dim')}>{status}</span>
-                  </button>
-                );
-              })}
-            </div>
+            <>
+              <div className="grid grid-cols-2 gap-1.5 rounded-[20px] bg-lift-inset p-1.5">
+                {fallbackSessions.map((item) => {
+                  const selected = session.id === item.id;
+                  const status = getFallbackStatus(item);
+                  return (
+                    <button key={item.id} onClick={() => setSelectedSessionId(item.id)} aria-pressed={selected}
+                      className={clsx('flex min-h-[66px] min-w-0 flex-col items-start justify-between rounded-2xl px-3 py-2.5 text-left transition-colors', selected ? 'bg-lift-text text-white shadow-sm' : 'bg-transparent text-lift-text')}>
+                      <span className="text-[13px] font-semibold">Fallback {item.id === 'FA' ? 'A' : 'B'}</span>
+                      <span className={clsx('text-[11px] font-medium', selected ? 'text-white/70' : status === 'Suggested' ? 'text-lift-success-text' : 'text-lift-text-dim')}>{status}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {recommended.type === 'rotation' && <p className="mb-0 mt-2 px-1 text-xs leading-relaxed text-lift-text-muted">Use a fallback when you expect a long gap. Your rotation position stays put.</p>}
+            </>
           ) : (
             <div className="grid grid-cols-4 gap-1.5 rounded-[20px] bg-lift-inset p-1.5">
               {rotation.map((item, index) => {
@@ -130,18 +148,18 @@ export function Home() {
         {gapDetected && (
           <div role="status" className="mb-4 flex items-center justify-between gap-3 rounded-2xl bg-lift-notice-bg px-4 py-3 text-[13px] leading-snug text-lift-notice-text">
             <span>{daysSinceLast} days since your last session. A fallback is ready if useful.</span>
-            {!showFallbackQueue && <button onClick={() => setShowFallbackQueue(true)} className="shrink-0 rounded-full bg-white/70 px-3 py-2 text-xs font-semibold">View</button>}
+            {!showFallbackQueue && <button onClick={openFallbackQueue} className="shrink-0 rounded-full bg-white/70 px-3 py-2 text-xs font-semibold">View</button>}
           </div>
         )}
 
         <section className="mb-3 flex items-start justify-between gap-3">
-          <div>
-            <h1 className="m-0 text-[24px] font-semibold leading-tight tracking-tight">{sessionName(session.label)}</h1>
-            <p className="m-0 mt-1 text-[14px] text-lift-text-muted">{focusName(session.tag)}</p>
+          <div className="flex min-w-0 items-baseline gap-2">
+            <h1 className="m-0 shrink-0 text-[21px] font-semibold leading-tight tracking-tight">{sessionName(session.label)}</h1>
+            <p className="m-0 truncate text-[13px] text-lift-text-muted">{focusName(session.tag)}</p>
           </div>
           {isPreview ? (
-            <button onClick={() => setSelectedSessionId(null)} className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full bg-lift-inset px-3 text-xs font-medium text-lift-text-muted">
-              <RotateCcw className="h-3.5 w-3.5" /> Up next
+            <button onClick={() => setSelectedSessionId(null)} className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-full bg-lift-inset px-2.5 text-[11px] font-medium text-lift-text-muted">
+              <RotateCcw className="h-3 w-3" /> Up next
             </button>
           ) : doneToday ? (
             <span className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-lift-success-bg px-3 py-2 text-xs font-semibold text-lift-success-text"><Check className="h-3.5 w-3.5" /> Done today</span>
@@ -177,7 +195,7 @@ export function Home() {
 
         <button onClick={completeCurrentSession} disabled={isPreview || doneToday}
           className={clsx('mt-4 flex h-[54px] w-full items-center justify-center rounded-2xl text-[15px] font-semibold transition-colors', isPreview || doneToday ? 'bg-lift-inset text-lift-text-dim' : 'bg-lift-text text-white active:bg-[#2E2E33]')}>
-          {isPreview ? 'Preview only' : doneToday ? 'Session completed' : 'Complete session'}
+          {isPreview ? 'Preview' : doneToday ? 'Session completed' : 'Complete session'}
         </button>
       </main>
 
@@ -212,9 +230,11 @@ function sessionName(label: string) {
 }
 
 function focusName(tag: string) {
-  return tag.split('—').map((part, index) => index === 0
-    ? part.trim().toLowerCase().replace(/^\w/, (letter) => letter.toUpperCase())
-    : part.trim().toLowerCase()).join(' · ');
+  const [category, focus] = tag.split('—').map((part) => part.trim());
+  const formattedFocus = focus?.toLowerCase().replace(/^\w/, (letter) => letter.toUpperCase());
+  return category?.toLowerCase().includes('full body')
+    ? `Full body · ${formattedFocus}`
+    : formattedFocus ?? category;
 }
 
 function getCurrentSessionRun(dates: string[], today: Date) {
