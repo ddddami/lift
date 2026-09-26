@@ -159,6 +159,13 @@ export function Home() {
     setExpandedExercise(null);
   };
 
+  const undoCurrentSession = () => {
+    if (!canUndo) return;
+    undoSessionCompletion();
+    selectSession(null);
+    setExpandedExercise(null);
+  };
+
   const getRotationStatus = (item: TrainingSession, index: number) => {
     if (recommended.type === 'rotation' && recommended.session.id === item.id) return 'Next';
     if (recommended.type !== 'rotation' && trainingState.nextRotationIndex === index) return 'Then';
@@ -289,7 +296,12 @@ export function Home() {
                 <h1 className="m-0 shrink-0 text-[21px] font-semibold leading-tight tracking-tight">{sessionName(session.label)}</h1>
                 <p className="m-0 truncate text-[13px] text-lift-text-muted">{focusName(session.tag)}</p>
               </div>
-              {isPreview ? (
+              {canUndo ? (
+                <button type="button" onClick={undoCurrentSession} aria-label="Undo session completion"
+                  className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-full bg-lift-inset px-2 text-[11px] font-medium text-lift-text-muted">
+                  <Undo2 className="h-3 w-3" /> Undo
+                </button>
+              ) : isPreview ? (
                 <button onClick={() => selectSession(null)} className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-full bg-lift-inset px-2 text-[11px] font-medium text-lift-text-muted">
                   <RotateCcw className="h-3 w-3" /> Up next
                 </button>
@@ -340,13 +352,7 @@ export function Home() {
       {sessionDock && createPortal(
         <button
           type="button"
-          onClick={() => {
-            if (canUndo) {
-              undoSessionCompletion();
-              selectSession(null);
-              setExpandedExercise(null);
-            } else completeCurrentSession();
-          }}
+          onClick={canUndo ? undoCurrentSession : completeCurrentSession}
           disabled={!canUndo && (isPreview || doneToday)}
           aria-label={canUndo ? 'Undo session completion' : isPreview ? 'Preview — select the next session to complete' : doneToday ? 'Session completed' : 'Complete session'}
           title={canUndo ? 'Undo completion' : isPreview ? 'Preview' : doneToday ? 'Session completed' : 'Complete session'}

@@ -124,7 +124,6 @@ export function Tracker() {
                 <Check className="h-4 w-4 shrink-0 text-lift-success-text" />
                 <div className="min-w-0">
                   <div className="text-[13px] font-medium">{programmeLabel ?? 'Workout logged'}</div>
-                  <div className="mt-0.5 text-xs text-lift-text-muted">{programmeLabel ? 'Programme completed' : 'No programme recorded'}</div>
                 </div>
               </div>
               <button onClick={toggleSelectedSession} className="min-h-11 rounded-full bg-white px-3 text-xs font-semibold text-lift-text-muted">Undo</button>
