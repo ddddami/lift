@@ -8,20 +8,20 @@ import type { TrainingSession } from '../data/plans';
 import { GAP_THRESHOLD_DAYS, getNextSession } from '../data/training';
 import { useStore } from '../store/useStore';
 
-const catchUpSessions = [fallbackA, fallbackB];
-const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const fallbackSessions = [fallbackA, fallbackB];
 
 export function Home() {
   const { trainingState, rotationCompleted, doneExercises, activityMap, toggleExercise, completeSession } = useStore();
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [expandedExercise, setExpandedExercise] = useState<string | null>(null);
   const [showGuidelines, setShowGuidelines] = useState(false);
+  const [showFallbackQueue, setShowFallbackQueue] = useState(false);
 
   const today = new Date();
   const dateKey = format(today, 'yyyy-MM-dd');
   const recommended = getNextSession(trainingState, today);
   const inspectedSession = selectedSessionId
-    ? [...rotation, ...catchUpSessions].find((session) => session.id === selectedSessionId)
+    ? [...rotation, ...fallbackSessions].find((session) => session.id === selectedSessionId)
     : undefined;
   const session = inspectedSession ?? recommended.session;
   const isPreview = selectedSessionId !== null && session.id !== recommended.session.id;
@@ -32,7 +32,7 @@ export function Home() {
     ? Math.floor((Date.parse(`${dateKey}T00:00:00Z`) - Date.parse(`${trainingState.lastSessionDate}T00:00:00Z`)) / 86_400_000)
     : null;
   const gapDetected = daysSinceLast !== null && daysSinceLast > GAP_THRESHOLD_DAYS;
-  const catchUpType = recommended.type === 'rotation' ? null : recommended.type;
+  const fallbackType = recommended.type === 'rotation' ? null : recommended.type;
 
   const completeCurrentSession = () => {
     if (isPreview || doneToday) return;
@@ -48,9 +48,9 @@ export function Home() {
     return 'Queued';
   };
 
-  const getCatchUpStatus = (item: TrainingSession) => {
-    if (recommended.session.id === item.id && catchUpType) return 'Suggested';
-    if (gapDetected && trainingState.lastSessionType === 'fallbackA' && item.id === fallbackB.id) return 'Next if needed';
+  const getFallbackStatus = (item: TrainingSession) => {
+    if (recommended.session.id === item.id && fallbackType) return 'Suggested';
+    if (gapDetected && trainingState.lastSessionType === 'fallbackA' && item.id === fallbackB.id) return 'Next';
     return 'Available';
   };
 
@@ -76,81 +76,61 @@ export function Home() {
           </div>
         </header>
 
-        <section className="mb-6" aria-label="This week">
-          <div className="mb-2.5 flex items-center justify-between">
-            <h2 className="m-0 text-[15px] font-semibold">This week</h2>
-            <span className="text-xs text-lift-text-muted">{sessionRun} session{sessionRun === 1 ? '' : 's'} in this run</span>
-          </div>
-          <div className="grid grid-cols-7 gap-1.5">
-            {Array.from({ length: 7 }, (_, index) => {
-              const day = new Date(today);
-              day.setDate(today.getDate() - today.getDay() + index);
-              const key = format(day, 'yyyy-MM-dd');
-              const hasSession = (activityMap[key]?.count ?? 0) > 0;
-              const isToday = key === dateKey;
-              return (
-                <div key={key} className={clsx('flex flex-col items-center rounded-2xl py-2', isToday && 'bg-lift-text text-white')}>
-                  <span className={clsx('text-[11px] font-medium', isToday ? 'text-white/70' : 'text-lift-text-dim')}>{weekdays[index]}</span>
-                  <span className={clsx('mt-1 inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold', hasSession ? 'bg-lift-accent-3 text-white' : isToday ? 'border border-white/50 text-white' : 'text-lift-text')}>
-                    {hasSession ? <Check className="h-3.5 w-3.5" strokeWidth={2.5} /> : format(day, 'd')}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
         <section className="mb-6" aria-label="Training rotation">
           <div className="mb-2.5 flex items-baseline justify-between">
-            <h2 className="m-0 text-[15px] font-semibold">Rotation</h2>
-            <span className="text-xs text-lift-text-muted">Four sessions · repeats</span>
+            <h2 className="m-0 text-[15px] font-semibold">{showFallbackQueue ? 'Fallback sessions' : 'Rotation'}</h2>
+            <button
+              type="button"
+              onClick={() => {
+                setShowFallbackQueue((shown) => !shown);
+                setSelectedSessionId(null);
+              }}
+              aria-pressed={showFallbackQueue}
+              className={clsx('inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition-colors', gapDetected && !showFallbackQueue ? 'bg-lift-notice-bg text-lift-notice-text' : 'bg-lift-inset text-lift-text-muted')}
+            >
+              {showFallbackQueue ? 'Rotation' : gapDetected ? 'Fallback ready' : 'Fallbacks'}
+              <RotateCcw className="h-3 w-3" />
+            </button>
           </div>
-          <div className="grid grid-cols-4 gap-1.5 rounded-[20px] bg-lift-inset p-1.5">
-            {rotation.map((item, index) => {
-              const status = getRotationStatus(item, index);
-              const isSelected = session.id === item.id;
-              const isDone = status === 'Done';
-              return (
-                <button key={item.id} onClick={() => setSelectedSessionId(item.id === recommended.session.id ? null : item.id)} aria-pressed={isSelected}
-                  className={clsx('flex min-h-[74px] min-w-0 flex-col items-start justify-between rounded-2xl px-2.5 py-2.5 text-left transition-colors', isSelected ? 'bg-lift-text text-white shadow-sm' : 'bg-transparent text-lift-text')}>
-                  <span className={clsx('inline-flex h-[21px] w-[21px] items-center justify-center rounded-full text-[11px] font-semibold', isDone ? 'bg-lift-accent-3 text-white' : isSelected ? 'bg-white/15 text-white' : 'bg-white text-lift-text-muted')}>
-                    {isDone ? <Check className="h-3 w-3" strokeWidth={2.5} /> : `0${index + 1}`}
-                  </span>
-                  <span className="block w-full truncate text-[12px] font-semibold">{sessionName(item.label)}</span>
-                  <span className={clsx('text-[11px] font-medium', isSelected ? 'text-white/70' : isDone ? 'text-lift-success-text' : 'text-lift-text-dim')}>
-                    {status}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="mt-4 flex items-center justify-between">
-            <h3 className="m-0 text-[14px] font-semibold">Catch-up</h3>
-            <span className="text-xs text-lift-text-muted">After {GAP_THRESHOLD_DAYS} days</span>
-          </div>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            {catchUpSessions.map((item) => {
-              const selected = session.id === item.id;
-              const status = getCatchUpStatus(item);
-              const suggested = status === 'Suggested';
-              return (
-                <button key={item.id} onClick={() => setSelectedSessionId(item.id === recommended.session.id ? null : item.id)} aria-pressed={selected}
-                  className={clsx('flex min-h-[58px] items-center justify-between rounded-2xl px-3.5 py-2.5 text-left transition-colors', selected ? 'bg-lift-text text-white' : 'bg-lift-inset text-lift-text')}>
-                  <span>
-                    <span className="block text-[13px] font-semibold">Catch-up {item.id === 'FA' ? 'A' : 'B'}</span>
-                    <span className={clsx('mt-0.5 block text-[11px]', selected ? 'text-white/70' : suggested ? 'text-lift-success-text' : 'text-lift-text-muted')}>{status}</span>
-                  </span>
-                  {suggested && <span className={clsx('h-2 w-2 rounded-full', selected ? 'bg-lift-accent-3' : 'bg-lift-accent-3')} />}
-                </button>
-              );
-            })}
-          </div>
+          {showFallbackQueue ? (
+            <div className="grid grid-cols-2 gap-1.5 rounded-[20px] bg-lift-inset p-1.5">
+              {fallbackSessions.map((item) => {
+                const selected = session.id === item.id;
+                const status = getFallbackStatus(item);
+                return (
+                  <button key={item.id} onClick={() => setSelectedSessionId(item.id === recommended.session.id ? null : item.id)} aria-pressed={selected}
+                    className={clsx('flex min-h-[66px] min-w-0 flex-col items-start justify-between rounded-2xl px-3 py-2.5 text-left transition-colors', selected ? 'bg-lift-text text-white shadow-sm' : 'bg-transparent text-lift-text')}>
+                    <span className="text-[13px] font-semibold">Fallback {item.id === 'FA' ? 'A' : 'B'}</span>
+                    <span className={clsx('text-[11px] font-medium', selected ? 'text-white/70' : status === 'Suggested' ? 'text-lift-success-text' : 'text-lift-text-dim')}>{status}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="grid grid-cols-4 gap-1.5 rounded-[20px] bg-lift-inset p-1.5">
+              {rotation.map((item, index) => {
+                const status = getRotationStatus(item, index);
+                const isSelected = session.id === item.id;
+                const isDone = status === 'Done';
+                return (
+                  <button key={item.id} onClick={() => setSelectedSessionId(item.id === recommended.session.id ? null : item.id)} aria-pressed={isSelected}
+                    className={clsx('flex min-h-[74px] min-w-0 flex-col items-start justify-between rounded-2xl px-2.5 py-2.5 text-left transition-colors', isSelected ? 'bg-lift-text text-white shadow-sm' : 'bg-transparent text-lift-text')}>
+                    <span className={clsx('inline-flex h-[21px] w-[21px] items-center justify-center rounded-full text-[11px] font-semibold', isDone ? 'bg-lift-accent-3 text-white' : isSelected ? 'bg-white/15 text-white' : 'bg-white text-lift-text-muted')}>
+                      {isDone ? <Check className="h-3 w-3" strokeWidth={2.5} /> : `0${index + 1}`}
+                    </span>
+                    <span className="block w-full truncate text-[12px] font-semibold">{sessionName(item.label)}</span>
+                    <span className={clsx('text-[11px] font-medium', isSelected ? 'text-white/70' : isDone ? 'text-lift-success-text' : 'text-lift-text-dim')}>{status}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </section>
 
         {gapDetected && (
-          <div role="status" className="mb-4 rounded-2xl bg-lift-notice-bg px-4 py-3 text-[13px] leading-snug text-lift-notice-text">
-            It’s been {daysSinceLast} days since your last session. A catch-up workout is ready when you are.
+          <div role="status" className="mb-4 flex items-center justify-between gap-3 rounded-2xl bg-lift-notice-bg px-4 py-3 text-[13px] leading-snug text-lift-notice-text">
+            <span>{daysSinceLast} days since your last session. A fallback is ready if useful.</span>
+            {!showFallbackQueue && <button onClick={() => setShowFallbackQueue(true)} className="shrink-0 rounded-full bg-white/70 px-3 py-2 text-xs font-semibold">View</button>}
           </div>
         )}
 
@@ -176,15 +156,15 @@ export function Home() {
             const isExpanded = expandedExercise === key;
             return (
               <article key={key} className={clsx('mx-4', index > 0 && 'border-t border-lift-border')}>
-                <div className="flex min-h-[68px] items-center gap-3 py-2.5">
-                  <button onClick={() => toggleExercise(session.id, index, !isDone)} disabled={isPreview || doneToday} aria-label={`${isDone ? 'Unmark' : 'Mark'} ${exercise.name} complete`}
-                    className={clsx('inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full', (isPreview || doneToday) && 'cursor-not-allowed opacity-60')}>
-                    <span className={clsx('inline-flex h-[23px] w-[23px] items-center justify-center rounded-full border transition-colors', isDone ? 'border-lift-accent-3 bg-lift-accent-3 text-white' : 'border-lift-border bg-white text-transparent')}><Check className="h-3.5 w-3.5" strokeWidth={2.5} /></span>
+                <div className="flex items-center gap-1">
+                  <button type="button" onClick={() => toggleExercise(session.id, index, !isDone)} disabled={isPreview || doneToday} aria-pressed={isDone} aria-label={`${isDone ? 'Unmark' : 'Mark'} ${exercise.name} complete`}
+                    className={clsx('flex min-h-[68px] min-w-0 flex-1 items-center gap-3 py-2.5 text-left', (isPreview || doneToday) && 'cursor-not-allowed opacity-60')}>
+                    <span className={clsx('inline-flex h-[23px] w-[23px] shrink-0 items-center justify-center rounded-full border transition-colors', isDone ? 'border-lift-accent-3 bg-lift-accent-3 text-white' : 'border-lift-border bg-white text-transparent')}><Check className="h-3.5 w-3.5" strokeWidth={2.5} /></span>
+                    <span className="min-w-0 flex-1">
+                      <span className={clsx('block text-[14px] font-medium leading-snug', isDone && 'text-lift-text-muted line-through')}>{exercise.name}</span>
+                      <span className="mt-1 block text-xs text-lift-text-muted">{exercise.sets} sets <span className="mx-1.5 text-lift-text-dim">·</span> {exercise.reps} reps</span>
+                    </span>
                   </button>
-                  <div className="min-w-0 flex-1">
-                    <div className={clsx('text-[14px] font-medium leading-snug', isDone && 'text-lift-text-muted line-through')}>{exercise.name}</div>
-                    <div className="mt-1 text-xs text-lift-text-muted">{exercise.sets} sets <span className="mx-1.5 text-lift-text-dim">·</span> {exercise.reps} reps</div>
-                  </div>
                   <button onClick={() => setExpandedExercise(isExpanded ? null : key)} aria-label={`${isExpanded ? 'Hide' : 'Show'} ${exercise.name} note`} className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-lift-text-muted">
                     {isExpanded ? <ChevronUp className="h-[18px] w-[18px]" /> : <ChevronDown className="h-[18px] w-[18px]" />}
                   </button>
@@ -210,8 +190,8 @@ export function Home() {
             </div>
             <div className="overflow-y-auto p-5">
               <section className="mb-5">
-                <h3 className="mb-1 text-sm font-semibold">Rotation and catch-up</h3>
-                <p className="m-0 text-[14px] leading-relaxed text-lift-text-muted">The four-session rotation keeps its place. After more than {GAP_THRESHOLD_DAYS} days without a completed session, catch-up sessions alternate until your regular cadence resumes.</p>
+                <h3 className="mb-1 text-sm font-semibold">Rotation and fallbacks</h3>
+                <p className="m-0 text-[14px] leading-relaxed text-lift-text-muted">The rotation keeps its place. After more than {GAP_THRESHOLD_DAYS} days without a completed session, fallback sessions alternate until your regular cadence resumes.</p>
               </section>
               <section>
                 <h3 className="mb-3 text-sm font-semibold">Progressive overload</h3>

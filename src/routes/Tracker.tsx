@@ -44,7 +44,7 @@ export function Tracker() {
   const daysSinceLast = trainingState.lastSessionDate
     ? differenceInCalendarDays(new Date(), parseISO(trainingState.lastSessionDate))
     : null;
-  const catchUpRecommended = nextType !== 'rotation';
+  const fallbackRecommended = nextType !== 'rotation';
 
   const intensityClass = (count: number) => {
     if (!count) return 'bg-lift-activity-empty text-lift-text-dim';
@@ -76,9 +76,9 @@ export function Tracker() {
           <MetricCard value={bestRun} label="Best run" detail={`sessions · ≤${GAP_THRESHOLD_DAYS} days apart`} />
         </div>
 
-        <div className={clsx('mt-3 flex items-center justify-between gap-3 rounded-2xl px-4 py-3', catchUpRecommended ? 'bg-lift-notice-bg' : 'bg-lift-inset')}>
+        <div className={clsx('mt-3 flex items-center justify-between gap-3 rounded-2xl px-4 py-3', fallbackRecommended ? 'bg-lift-notice-bg' : 'bg-lift-inset')}>
           <div className="min-w-0">
-            <div className="text-xs font-medium text-lift-text-muted">{catchUpRecommended ? 'Ease back in' : 'Next session'}</div>
+            <div className="text-xs font-medium text-lift-text-muted">{fallbackRecommended ? 'Fallback suggested' : 'Next session'}</div>
             <div className="mt-1 text-[14px] font-semibold text-lift-text">
               {daysSinceLast === null ? `Start with ${formatLabel(nextSession.label)}` : `${daysSinceLast} ${daysSinceLast === 1 ? 'day' : 'days'} since your last session · ${formatLabel(nextSession.label)}`}
             </div>

@@ -82,7 +82,7 @@ export const rotation: TrainingSession[] = [
 
 export const fallbackA: TrainingSession = {
         id: "FA",
-        label: "CATCH-UP A",
+        label: "FALLBACK A",
         tag: "FULL BODY — PUSH FOCUS",
         keyFocus: "Chest & quads lead. Back + shoulders + hamstrings follow.",
         exercises: [
@@ -99,7 +99,7 @@ export const fallbackA: TrainingSession = {
 
 export const fallbackB: TrainingSession = {
         id: "FB",
-        label: "CATCH-UP B",
+        label: "FALLBACK B",
         tag: "FULL BODY — PULL FOCUS",
         keyFocus: "Back & hamstrings lead. Chest + shoulders + quads follow.",
         exercises: [

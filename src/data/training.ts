@@ -19,7 +19,7 @@ export const GAP_THRESHOLD_DAYS = 5;
 
 /**
  * The rotation advances only when a rotation session is completed. After a gap
- * longer than five days, catch-up sessions alternate until normal cadence resumes.
+ * longer than five days, fallback sessions alternate until normal cadence resumes.
  * This keeps the split moving forward without repeating sessions after disruption.
  */
 export function getNextSession(state: TrainingState, today: Date | string): NextSession {
