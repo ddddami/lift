@@ -53,13 +53,17 @@ export const useStore = create<AppState>()(
 
       completeSession: (sessionType, sessionLabel, exerciseCount) => {
         const dateStr = format(new Date(), 'yyyy-MM-dd');
-        set((state) => ({
-          trainingState: recordSessionCompleted(state.trainingState, sessionType, dateStr),
-          activityMap: {
-            ...state.activityMap,
-            [dateStr]: { count: exerciseCount, sessionLabel },
-          },
-        }));
+        set((state) => {
+          if (state.trainingState.lastSessionDate === dateStr) return state;
+
+          return {
+            trainingState: recordSessionCompleted(state.trainingState, sessionType, dateStr),
+            activityMap: {
+              ...state.activityMap,
+              [dateStr]: { count: exerciseCount, sessionLabel },
+            },
+          };
+        });
       },
 
       togglePastDate: (dateStr) => {
@@ -111,7 +115,9 @@ export const useStore = create<AppState>()(
           for (const [date, rawEntry] of Object.entries(savedActivities)) {
             const entry = typeof rawEntry === 'number'
               ? { count: rawEntry }
-              : rawEntry as { count?: number; planId?: string; dayIdx?: number };
+              : rawEntry && typeof rawEntry === 'object'
+                ? rawEntry as { count?: number; planId?: string; dayIdx?: number }
+                : {};
             activityMap[date] = {
               count: typeof entry.count === 'number' ? entry.count : 0,
               sessionLabel: 'Workout logged',
@@ -146,11 +152,20 @@ export const useStore = create<AppState>()(
           migrated.activityMap = activityMap;
           migrated.doneExercises = doneExercises;
           migrated.trainingState = {
-            nextRotationIndex: latestPlanId === '4' && latestDayIdx !== undefined
+            nextRotationIndex: latestPlanId === '4'
+              && latestDayIdx !== undefined
+              && latestDayIdx >= 0
+              && latestDayIdx < 4
               ? (latestDayIdx + 1) % 4
               : 0,
             lastSessionDate: latestDate,
-            lastSessionType: latestDate ? 'rotation' : null,
+            lastSessionType: !latestDate
+              ? null
+              : latestPlanId === '3' && latestDayIdx === 0
+                ? 'fallbackA'
+                : latestPlanId === '3' && latestDayIdx === 1
+                  ? 'fallbackB'
+                  : 'rotation',
           } satisfies TrainingState;
         }
 

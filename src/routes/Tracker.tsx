@@ -2,15 +2,16 @@ import { useState, useRef, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import type { ActivityMap } from '../store/useStore';
 import { 
-  subDays, format, eachDayOfInterval, startOfWeek, differenceInDays,
+  subDays, format, eachDayOfInterval, startOfWeek, differenceInDays, differenceInCalendarDays, parseISO,
   startOfMonth, endOfMonth, endOfWeek, isSameMonth, isToday, addMonths, subMonths, isSameDay
 } from 'date-fns';
 import clsx from 'clsx';
 import { Dumbbell, Flame, Trophy, ChevronLeft, ChevronRight, CheckCircle2, Plus, Activity } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
+import { getNextSession } from '../data/training';
 
 export function Tracker() {
-  const { activityMap, togglePastDate } = useStore();
+  const { activityMap, trainingState, togglePastDate } = useStore();
   const [currentMonthDate, setCurrentMonthDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const heatmapScrollRef = useRef<HTMLDivElement>(null);
@@ -47,6 +48,11 @@ export function Tracker() {
   const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
   const selectedEntry = activityMap[selectedDateStr];
   const hasWorkout = selectedEntry && selectedEntry.count > 0;
+  const { session: nextSession, type: nextSessionType } = getNextSession(trainingState, new Date());
+  const daysSinceLastSession = trainingState.lastSessionDate
+    ? differenceInCalendarDays(new Date(), parseISO(trainingState.lastSessionDate))
+    : null;
+  const isCatchUp = nextSessionType !== 'rotation';
 
   const getIntensityClass = (count: number) => {
     if (count === 0) return 'bg-[#161616] text-[#666]';
@@ -112,6 +118,25 @@ export function Tracker() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-5 pb-8">
+        <div className="bg-lift-card border border-lift-border rounded-xl p-4 mb-6">
+          <div className="text-[10px] tracking-[0.2em] text-[#777] font-bold uppercase mb-2">Gap Check</div>
+          {daysSinceLastSession === null ? (
+            <p className="text-[11px] text-[#888] mb-3">No completed sessions yet. Start with {nextSession.label}.</p>
+          ) : (
+            <>
+              <p className="text-[11px] text-[#888] mb-1">
+                {daysSinceLastSession} {daysSinceLastSession === 1 ? 'day' : 'days'} since your last completed session.
+              </p>
+              <p className="text-xs font-bold text-white mb-3">
+                {isCatchUp ? 'Catch-up session recommended' : 'Continue your rotation'}: {nextSession.label}
+              </p>
+            </>
+          )}
+          <Link to="/" className="text-[10px] font-bold tracking-wider text-lift-accent-4 no-underline">
+            VIEW TODAY'S SESSION →
+          </Link>
+        </div>
+
         <div className="bg-lift-card border border-lift-border rounded-xl p-5 mb-6 shadow-sm">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-[10px] font-bold tracking-widest text-[#777] uppercase">52-Week Heatmap</h2>
