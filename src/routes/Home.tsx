@@ -10,6 +10,14 @@ import { useStore } from '../store/useStore';
 
 const fallbackSessions = [fallbackA, fallbackB];
 const QUEUE_MORPH_SCROLL_DISTANCE = 84;
+const EXERCISE_ANCHOR_GAP = 16;
+
+type ScrollHandoff = {
+  soften: boolean;
+  travel: number;
+  applied: number;
+  budget: number | null;
+};
 
 export function Home() {
   const { trainingState, rotationCompleted, doneExercises, activityMap, toggleExercise, completeSession } = useStore();
@@ -25,6 +33,7 @@ export function Home() {
   const overviewOffsetRef = useRef(0);
   const pendingExerciseScrollRef = useRef(0);
   const overviewRef = useRef<HTMLDivElement | null>(null);
+  const queueHeaderRef = useRef<HTMLElement | null>(null);
   const workoutGestureSurfaceRef = useRef<HTMLDivElement | null>(null);
   const workoutViewportRef = useRef<HTMLElement | null>(null);
   const exerciseScrollerRef = useRef<HTMLElement | null>(null);
@@ -94,10 +103,12 @@ export function Home() {
     let touchStartY = 0;
     let touchContentTravel = 0;
     let touchHasMovedVertically = false;
+    let touchHandoff: ScrollHandoff = { soften: false, travel: 0, applied: 0, budget: null };
     let wheelActive = false;
     let wheelStartedExpanded = false;
     let wheelContentTravel = 0;
     let wheelAppliedContentTravel = 0;
+    let wheelHandoff: ScrollHandoff = { soften: false, travel: 0, applied: 0, budget: null };
     let wheelUnlockTimer: ReturnType<typeof setTimeout> | undefined;
 
     const setCollapsed = (collapsed: boolean) => {
@@ -111,7 +122,7 @@ export function Home() {
       setOverviewOffset(bounded);
     };
 
-    const consumeContentScroll = (deltaY: number) => {
+    const consumeContentScroll = (deltaY: number, handoff: ScrollHandoff) => {
       if (deltaY > 0) {
         let remaining = deltaY;
         if (remaining > 0 && overviewOffsetRef.current < overviewHeightRef.current) {
@@ -121,8 +132,23 @@ export function Home() {
         }
 
         if (remaining > 0 && exerciseScrollerRef.current) {
-          if (overviewOffsetRef.current >= overviewHeightRef.current - 0.5) {
-            exerciseScrollerRef.current.scrollTop += remaining;
+          const exercises = exerciseScrollerRef.current;
+          if (handoff.soften) {
+            // Use the final compact height, even while the queue is animating.
+            const compactQueueHeight = (queueHeaderRef.current?.offsetHeight ?? 0) + 44 + 8 + 8;
+            const availableHeight = Math.max(0, gestureSurface.clientHeight - compactQueueHeight - 70 - EXERCISE_ANCHOR_GAP);
+            const availableScroll = Math.max(0, exercises.scrollHeight - availableHeight - exercises.scrollTop);
+            handoff.budget ??= Math.min(96, availableScroll * 0.65);
+            handoff.travel += remaining;
+            const next = handoff.budget > 0
+              ? handoff.budget * (1 - Math.exp(-0.65 * handoff.travel / handoff.budget))
+              : 0;
+            remaining = Math.max(0, next - handoff.applied);
+            handoff.applied = next;
+          }
+
+          if (Math.abs(exercises.offsetTop - EXERCISE_ANCHOR_GAP) < 0.5) {
+            exercises.scrollTop += remaining;
           } else {
             pendingExerciseScrollRef.current += remaining;
           }
@@ -131,6 +157,9 @@ export function Home() {
       }
 
       let remaining = -deltaY;
+      handoff.travel = 0;
+      handoff.applied = 0;
+      handoff.budget = null;
       const exercises = exerciseScrollerRef.current;
       const exerciseOffset = (exercises?.scrollTop ?? 0) + pendingExerciseScrollRef.current;
       if (exercises && exerciseOffset > 0) {
@@ -157,6 +186,7 @@ export function Home() {
       touchStartedExpanded = !queueCollapsedRef.current;
       touchContentTravel = 0;
       touchHasMovedVertically = false;
+      touchHandoff = { soften: touchStartedExpanded || overviewOffsetRef.current < overviewHeightRef.current - 0.5, travel: 0, applied: 0, budget: null };
     };
 
     const onTouchMove = (event: TouchEvent) => {
@@ -173,10 +203,10 @@ export function Home() {
         const travel = touchStartY - currentY;
         const nextContentTravel = Math.max(0, travel - QUEUE_MORPH_SCROLL_DISTANCE);
         setCollapsed(travel > 4);
-        consumeContentScroll(nextContentTravel - touchContentTravel);
+        consumeContentScroll(nextContentTravel - touchContentTravel, touchHandoff);
         touchContentTravel = nextContentTravel;
       } else {
-        consumeContentScroll(deltaY);
+        consumeContentScroll(deltaY, touchHandoff);
       }
     };
 
@@ -191,16 +221,17 @@ export function Home() {
         wheelStartedExpanded = !queueCollapsedRef.current;
         wheelContentTravel = 0;
         wheelAppliedContentTravel = 0;
+        wheelHandoff = { soften: wheelStartedExpanded || overviewOffsetRef.current < overviewHeightRef.current - 0.5, travel: 0, applied: 0, budget: null };
       }
 
       if (wheelStartedExpanded) {
         wheelContentTravel += deltaY;
         const nextContentTravel = Math.max(0, wheelContentTravel - QUEUE_MORPH_SCROLL_DISTANCE);
         setCollapsed(wheelContentTravel > 4);
-        consumeContentScroll(nextContentTravel - wheelAppliedContentTravel);
+        consumeContentScroll(nextContentTravel - wheelAppliedContentTravel, wheelHandoff);
         wheelAppliedContentTravel = nextContentTravel;
       } else {
-        consumeContentScroll(deltaY);
+        consumeContentScroll(deltaY, wheelHandoff);
       }
 
       if (wheelUnlockTimer) clearTimeout(wheelUnlockTimer);
@@ -257,12 +288,12 @@ export function Home() {
   };
 
   return (
-    <div ref={workoutGestureSurfaceRef} className="flex h-full flex-col bg-white text-lift-text">
+    <div ref={workoutGestureSurfaceRef} className="flex h-full min-h-0 flex-col bg-white text-lift-text">
       <div className={clsx(
         'shrink-0 overflow-hidden bg-white px-5 transition-[max-height,padding,box-shadow] duration-250 ease-out motion-reduce:transition-none',
         queueCollapsed ? 'max-h-[220px] pb-2 shadow-[0_8px_18px_rgba(18,24,20,0.06)]' : 'max-h-[360px]',
       )}>
-        <header className={clsx('flex items-center justify-between pt-[max(env(safe-area-inset-top),18px)] transition-[margin] duration-200 ease-out motion-reduce:transition-none', queueCollapsed ? 'mb-2' : 'mb-5')}>
+        <header ref={queueHeaderRef} className={clsx('flex items-center justify-between pt-[max(env(safe-area-inset-top),18px)] transition-[margin] duration-200 ease-out motion-reduce:transition-none', queueCollapsed ? 'mb-2' : 'mb-5')}>
           <div className="flex items-center gap-2.5">
             <Dumbbell className="h-[21px] w-[21px] text-lift-text" strokeWidth={2.2} />
             <span className="text-[19px] font-semibold tracking-tight">Lift Log</span>
@@ -377,7 +408,7 @@ export function Home() {
         <section
           ref={exerciseScrollerRef}
           aria-label={`${sessionName(session.label)} exercises`}
-          style={{ top: Math.max(0, overviewHeight - overviewOffset) }}
+          style={{ top: Math.max(EXERCISE_ANCHOR_GAP, overviewHeight - overviewOffset) }}
           className={clsx('absolute left-5 right-5 bottom-[70px] overscroll-contain', overviewHeight > 0 && overviewOffset >= overviewHeight - 0.5 ? 'overflow-y-auto' : 'overflow-hidden')}
         >
           <div className="overflow-hidden rounded-[22px] bg-lift-inset">
