@@ -1,20 +1,21 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { flushSync } from 'react-dom';
+import { useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal, flushSync } from 'react-dom';
 import { format } from 'date-fns';
-import { Link } from '@tanstack/react-router';
-import { Activity, ArrowLeftRight, Check, ChevronDown, ChevronUp, Dumbbell, Flame, Info, RotateCcw, X } from 'lucide-react';
+import { Undo2, ArrowLeftRight, Check, ChevronDown, ChevronUp, Dumbbell, Flame, Info, RotateCcw, X } from 'lucide-react';
 import clsx from 'clsx';
 import { fallbackA, fallbackB, overloadRules, rotation } from '../data/plans';
 import type { TrainingSession } from '../data/plans';
 import { GAP_THRESHOLD_DAYS, getNextSession } from '../data/training';
 import { useStore } from '../store/useStore';
+import { SessionDockContext } from '../components/sessionDock';
 
 const fallbackSessions = [fallbackA, fallbackB];
 const QUEUE_MORPH_SCROLL_DISTANCE = 84;
 const EXERCISE_ANCHOR_GAP = 16;
 
 export function Home() {
-  const { trainingState, rotationCompleted, doneExercises, activityMap, toggleExercise, completeSession } = useStore();
+  const sessionDock = useContext(SessionDockContext);
+  const { completionUndo, undoSessionCompletion, trainingState, rotationCompleted, doneExercises, activityMap, toggleExercise, completeSession } = useStore();
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [expandedExercise, setExpandedExercise] = useState<string | null>(null);
   const [showGuidelines, setShowGuidelines] = useState(false);
@@ -29,7 +30,7 @@ export function Home() {
   const morphProgress = Math.min(1, scrollOffset / QUEUE_MORPH_SCROLL_DISTANCE);
   const queueCollapsed = morphProgress >= 0.5;
   const overviewOffset = Math.min(geometry.overview, Math.max(0, scrollOffset - QUEUE_MORPH_SCROLL_DISTANCE));
-  const exerciseOverflow = Math.max(0, geometry.exercises - Math.max(0, geometry.viewport - geometry.compactQueue - 70 - EXERCISE_ANCHOR_GAP));
+  const exerciseOverflow = Math.max(0, geometry.exercises - Math.max(0, geometry.viewport - geometry.compactQueue - 16 - EXERCISE_ANCHOR_GAP));
   const exerciseOffset = Math.min(exerciseOverflow, Math.max(0, scrollOffset - QUEUE_MORPH_SCROLL_DISTANCE - geometry.overview));
   const exerciseAnchor = QUEUE_MORPH_SCROLL_DISTANCE + geometry.overview;
   const scrollDistance = exerciseAnchor + (listUnlocked ? exerciseOverflow : 0);
@@ -55,6 +56,7 @@ export function Home() {
   const isProactiveFallback = recommended.type === 'rotation' && selectedFallback;
   const isPreview = selectedSessionId !== null && session.id !== recommended.session.id && !isProactiveFallback;
   const doneToday = trainingState.lastSessionDate === dateKey;
+  const canUndo = doneToday && completionUndo?.date === dateKey;
   const recentDates = Object.entries(activityMap).filter(([, entry]) => entry?.count > 0).map(([date]) => date).sort();
   const sessionRun = getCurrentSessionRun(recentDates, today);
   const daysSinceLast = trainingState.lastSessionDate
@@ -185,9 +187,7 @@ export function Home() {
               <button onClick={() => setShowGuidelines(true)} aria-label="Program guidelines" className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-lift-inset text-lift-text-muted">
                 <Info className="h-[17px] w-[17px]" strokeWidth={1.8} />
               </button>
-              <Link to="/body" aria-label="Body tracking" className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-lift-inset text-lift-text-muted">
-                <Activity className="h-[17px] w-[17px]" strokeWidth={1.8} />
-              </Link>
+
             </div>
           </header>
 
@@ -284,7 +284,7 @@ export function Home() {
           <section
             aria-label={`${sessionName(session.label)} exercises`}
             style={{ top: Math.max(EXERCISE_ANCHOR_GAP, geometry.overview - overviewOffset) }}
-            className="absolute left-5 right-5 bottom-[70px] overflow-clip rounded-[22px]"
+            className="absolute left-5 right-5 bottom-4 overflow-clip rounded-[22px]"
           >
             <div ref={exerciseContentRef} style={{ transform: `translateY(-${exerciseOffset}px)` }} className="overflow-hidden rounded-[22px] bg-lift-inset">
               {session.exercises.map((exercise, index) => {
@@ -313,13 +313,29 @@ export function Home() {
             </div>
           </section>
 
-          <button onClick={completeCurrentSession} disabled={isPreview || doneToday}
-            className={clsx('absolute bottom-3 left-5 right-5 flex h-[54px] items-center justify-center rounded-2xl text-[15px] font-semibold transition-colors', isPreview || doneToday ? 'bg-lift-inset text-lift-text-dim' : 'bg-lift-text text-white active:bg-[#2E2E33]')}>
-            {isPreview ? 'Preview' : doneToday ? 'Session completed' : 'Complete session'}
-          </button>
+
         </main>
       </div>
       <div aria-hidden="true" style={{ height: scrollDistance }} />
+
+      {sessionDock && createPortal(
+        <button
+          type="button"
+          onClick={() => {
+            if (canUndo) {
+              undoSessionCompletion();
+              selectSession(null);
+              setExpandedExercise(null);
+            } else completeCurrentSession();
+          }}
+          disabled={!canUndo && (isPreview || doneToday)}
+          aria-label={canUndo ? 'Undo session completion' : isPreview ? 'Preview — select the next session to complete' : doneToday ? 'Session completed' : 'Complete session'}
+          title={canUndo ? 'Undo completion' : isPreview ? 'Preview' : doneToday ? 'Session completed' : 'Complete session'}
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-lift-text text-white shadow-sm transition-colors active:bg-[#2E2E33] disabled:bg-lift-inset disabled:text-lift-text-dim disabled:shadow-none"
+        >
+          {canUndo ? <Undo2 className="h-[22px] w-[22px]" strokeWidth={1.8} /> : <Check className="h-[24px] w-[24px]" strokeWidth={2} />}
+        </button>, sessionDock,
+      )}
 
       {showGuidelines && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/35 p-4 sm:items-center" onClick={() => setShowGuidelines(false)}>

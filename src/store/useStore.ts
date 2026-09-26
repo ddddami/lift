@@ -18,6 +18,12 @@ export type WeightLog = {
 };
 
 interface AppState {
+  completionUndo: {
+    date: string;
+    trainingState: TrainingState;
+    rotationCompleted: string[];
+    activityEntry?: ActivityEntry;
+  } | null;
   trainingState: TrainingState;
   rotationCompleted: string[];
   doneExercises: Record<string, boolean>;
@@ -26,6 +32,7 @@ interface AppState {
 
   toggleExercise: (sessionId: string, exIdx: number, isDone: boolean) => void;
   completeSession: (sessionType: SessionType, sessionId: string, sessionLabel: string, exerciseCount: number) => void;
+  undoSessionCompletion: () => void;
   togglePastDate: (dateStr: string) => void;
   addWeightLog: (weight: number, dateStr?: string) => void;
   deleteWeightLog: (dateStr: string) => void;
@@ -40,6 +47,7 @@ const emptyTrainingState: TrainingState = {
 export const useStore = create<AppState>()(
   persist(
     (set) => ({
+      completionUndo: null,
       trainingState: emptyTrainingState,
       rotationCompleted: [],
       doneExercises: {},
@@ -60,6 +68,12 @@ export const useStore = create<AppState>()(
           if (state.trainingState.lastSessionDate === dateStr) return state;
 
           return {
+            completionUndo: {
+              date: dateStr,
+              trainingState: state.trainingState,
+              rotationCompleted: state.rotationCompleted,
+              activityEntry: state.activityMap[dateStr],
+            },
             trainingState: recordSessionCompleted(state.trainingState, sessionType, dateStr),
             rotationCompleted: sessionType === 'rotation'
               ? state.trainingState.nextRotationIndex === rotation.length - 1
@@ -70,6 +84,23 @@ export const useStore = create<AppState>()(
               ...state.activityMap,
               [dateStr]: { count: exerciseCount, sessionLabel },
             },
+          };
+        });
+      },
+
+      undoSessionCompletion: () => {
+        const dateStr = format(new Date(), 'yyyy-MM-dd');
+        set((state) => {
+          const previous = state.completionUndo;
+          if (!previous || previous.date !== dateStr || state.trainingState.lastSessionDate !== dateStr) return state;
+          const activityMap = { ...state.activityMap };
+          if (previous.activityEntry) activityMap[dateStr] = previous.activityEntry;
+          else delete activityMap[dateStr];
+          return {
+            trainingState: previous.trainingState,
+            rotationCompleted: previous.rotationCompleted,
+            activityMap,
+            completionUndo: null,
           };
         });
       },
