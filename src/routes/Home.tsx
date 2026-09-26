@@ -57,7 +57,10 @@ export function Home() {
   const isProactiveFallback = recommended.type === 'rotation' && selectedFallback;
   const isPreview = selectedSessionId !== null && session.id !== recommended.session.id && !isProactiveFallback;
   const doneToday = trainingState.lastSessionDate === dateKey;
-  const canUndo = doneToday;
+  const completedSessionId = doneToday
+    ? [...rotation, ...fallbackSessions].find((item) => item.label === activityMap[dateKey]?.sessionLabel)?.id
+    : undefined;
+  const canUndo = doneToday && session.id === completedSessionId;
   const recentDates = Object.entries(activityMap).filter(([, entry]) => entry?.count > 0).map(([date]) => date).sort();
   const sessionRun = getCurrentSessionRun(recentDates, today);
   const daysSinceLast = trainingState.lastSessionDate
@@ -155,7 +158,7 @@ export function Home() {
       ? session.id === fallbackA.id ? 'fallbackA' : 'fallbackB'
       : recommended.type;
     completeSession(sessionType, session.id, session.label, session.exercises.length);
-    selectSession(null);
+    selectSession(session.id);
     setExpandedExercise(null);
   };
 
@@ -167,6 +170,7 @@ export function Home() {
   };
 
   const getRotationStatus = (item: TrainingSession, index: number) => {
+    if (item.id === completedSessionId) return 'Done';
     if (recommended.type === 'rotation' && recommended.session.id === item.id) return 'Next';
     if (recommended.type !== 'rotation' && trainingState.nextRotationIndex === index) return 'Then';
     if (rotationCompleted.includes(item.id)) return 'Done';
@@ -174,6 +178,7 @@ export function Home() {
   };
 
   const getFallbackStatus = (item: TrainingSession) => {
+    if (item.id === completedSessionId) return 'Done';
     if (recommended.session.id === item.id && fallbackType) return 'Suggested';
     if (item.id === proactiveFallback.id) return gapDetected ? 'Suggested' : 'Next if needed';
     return 'Available';
@@ -296,12 +301,12 @@ export function Home() {
                 <h1 className="m-0 shrink-0 text-[21px] font-semibold leading-tight tracking-tight">{sessionName(session.label)}</h1>
                 <p className="m-0 truncate text-[13px] text-lift-text-muted">{focusName(session.tag)}</p>
               </div>
-              {isPreview ? (
+              {canUndo ? (
+                <span className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-lift-success-bg px-3 py-2 text-xs font-semibold text-lift-success-text"><Check className="h-3.5 w-3.5" /> Done today</span>
+              ) : isPreview ? (
                 <button onClick={() => selectSession(null)} className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-full bg-lift-inset px-2 text-[11px] font-medium text-lift-text-muted">
                   <RotateCcw className="h-3 w-3" /> Up next
                 </button>
-              ) : doneToday ? (
-                <span className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-lift-success-bg px-3 py-2 text-xs font-semibold text-lift-success-text"><Check className="h-3.5 w-3.5" /> Done today</span>
               ) : null}
             </section>
             <p className="mb-4 mt-0 text-[14px] leading-relaxed text-lift-text-muted">{session.keyFocus}</p>
@@ -349,8 +354,8 @@ export function Home() {
           type="button"
           onClick={canUndo ? undoCurrentSession : completeCurrentSession}
           disabled={!canUndo && (isPreview || doneToday)}
-          aria-label={canUndo ? 'Undo session completion' : isPreview ? 'Preview — select the next session to complete' : doneToday ? 'Session completed' : 'Complete session'}
-          title={canUndo ? 'Undo completion' : isPreview ? 'Preview' : doneToday ? 'Session completed' : 'Complete session'}
+          aria-label={canUndo ? `Undo ${sessionName(session.label)} completion` : isPreview ? 'Preview — select the next session to complete' : doneToday ? 'Workout already logged today' : 'Complete session'}
+          title={canUndo ? 'Undo completion' : isPreview ? 'Preview' : doneToday ? 'Workout already logged today' : 'Complete session'}
           className="flex h-14 w-14 items-center justify-center rounded-full bg-lift-text text-white shadow-sm transition-colors active:bg-[#2E2E33] disabled:bg-lift-inset disabled:text-lift-text-dim disabled:shadow-none"
         >
           {canUndo ? <Undo2 className="h-[22px] w-[22px]" strokeWidth={1.8} /> : <Check className="h-[24px] w-[24px]" strokeWidth={2} />}
