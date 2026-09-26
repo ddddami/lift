@@ -24,7 +24,7 @@ export const GAP_THRESHOLD_DAYS = 5;
  */
 export function getNextSession(state: TrainingState, today: Date | string): NextSession {
   if (state.lastSessionDate === null) {
-    return { session: rotation[0], type: 'rotation' };
+    return { session: rotation[state.nextRotationIndex], type: 'rotation' };
   }
 
   const gapDays = daysBetween(state.lastSessionDate, toDateKey(today));

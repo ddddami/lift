@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { format } from 'date-fns';
-import { rotation } from '../data/plans';
+import { fallbackA, fallbackB, rotation } from '../data/plans';
 import { recordSessionCompleted } from '../data/training';
 import type { SessionType, TrainingState } from '../data/training';
 
@@ -91,8 +91,10 @@ export const useStore = create<AppState>()(
       undoSessionCompletion: () => {
         const dateStr = format(new Date(), 'yyyy-MM-dd');
         set((state) => {
-          const previous = state.completionUndo;
-          if (!previous || previous.date !== dateStr || state.trainingState.lastSessionDate !== dateStr) return state;
+          if (state.trainingState.lastSessionDate !== dateStr) return state;
+          const previous = state.completionUndo?.date === dateStr
+            ? state.completionUndo
+            : recoverPreviousCompletion(state, dateStr);
           const activityMap = { ...state.activityMap };
           if (previous.activityEntry) activityMap[dateStr] = previous.activityEntry;
           else delete activityMap[dateStr];
@@ -137,3 +139,32 @@ export const useStore = create<AppState>()(
     },
   ),
 );
+
+function recoverPreviousCompletion(state: AppState, date: string) {
+  const programmes = [...rotation, fallbackA, fallbackB];
+  const priorSessions = Object.entries(state.activityMap)
+    .filter(([day, entry]) => day < date && entry.count > 0 && programmes.some((programme) => programme.label === entry.sessionLabel))
+    .sort(([a], [b]) => a.localeCompare(b));
+  const priorSession = priorSessions.at(-1);
+  const priorProgramme = programmes.find((programme) => programme.label === priorSession?.[1].sessionLabel);
+  const wasRotation = state.trainingState.lastSessionType === 'rotation';
+  const restoredIndex = wasRotation
+    ? (state.trainingState.nextRotationIndex + rotation.length - 1) % rotation.length
+    : state.trainingState.nextRotationIndex;
+
+  return {
+    trainingState: {
+      nextRotationIndex: restoredIndex,
+      lastSessionDate: priorSession?.[0] ?? null,
+      lastSessionType: priorProgramme
+        ? priorProgramme.id === fallbackA.id ? 'fallbackA' : priorProgramme.id === fallbackB.id ? 'fallbackB' : 'rotation'
+        : null,
+    } satisfies TrainingState,
+    rotationCompleted: wasRotation
+      ? state.trainingState.nextRotationIndex === 0
+        ? rotation.slice(0, restoredIndex).map((programme) => programme.id)
+        : state.rotationCompleted.filter((id) => id !== rotation[restoredIndex].id)
+      : state.rotationCompleted,
+    activityEntry: undefined,
+  };
+}

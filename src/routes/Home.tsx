@@ -15,7 +15,7 @@ const EXERCISE_ANCHOR_GAP = 16;
 
 export function Home() {
   const sessionDock = useContext(SessionDockContext);
-  const { completionUndo, undoSessionCompletion, trainingState, rotationCompleted, doneExercises, activityMap, toggleExercise, completeSession } = useStore();
+  const { undoSessionCompletion, trainingState, rotationCompleted, doneExercises, activityMap, toggleExercise, completeSession } = useStore();
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [expandedExercise, setExpandedExercise] = useState<string | null>(null);
   const [showGuidelines, setShowGuidelines] = useState(false);
@@ -57,7 +57,7 @@ export function Home() {
   const isProactiveFallback = recommended.type === 'rotation' && selectedFallback;
   const isPreview = selectedSessionId !== null && session.id !== recommended.session.id && !isProactiveFallback;
   const doneToday = trainingState.lastSessionDate === dateKey;
-  const canUndo = doneToday && completionUndo?.date === dateKey;
+  const canUndo = doneToday;
   const recentDates = Object.entries(activityMap).filter(([, entry]) => entry?.count > 0).map(([date]) => date).sort();
   const sessionRun = getCurrentSessionRun(recentDates, today);
   const daysSinceLast = trainingState.lastSessionDate
@@ -296,12 +296,7 @@ export function Home() {
                 <h1 className="m-0 shrink-0 text-[21px] font-semibold leading-tight tracking-tight">{sessionName(session.label)}</h1>
                 <p className="m-0 truncate text-[13px] text-lift-text-muted">{focusName(session.tag)}</p>
               </div>
-              {canUndo ? (
-                <button type="button" onClick={undoCurrentSession} aria-label="Undo session completion"
-                  className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-full bg-lift-inset px-2 text-[11px] font-medium text-lift-text-muted">
-                  <Undo2 className="h-3 w-3" /> Undo
-                </button>
-              ) : isPreview ? (
+              {isPreview ? (
                 <button onClick={() => selectSession(null)} className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-full bg-lift-inset px-2 text-[11px] font-medium text-lift-text-muted">
                   <RotateCcw className="h-3 w-3" /> Up next
                 </button>

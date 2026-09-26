@@ -13,7 +13,7 @@ import { getNextSession } from '../data/training';
 
 export function Tracker() {
   const sessionDock = useContext(SessionDockContext);
-  const { activityMap, trainingState, completionUndo, undoSessionCompletion, togglePastDate } = useStore();
+  const { activityMap, trainingState, undoSessionCompletion, togglePastDate } = useStore();
   const [showTotals, setShowTotals] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -51,7 +51,7 @@ export function Tracker() {
 
   const toggleSelectedSession = () => {
     if (selectedFuture) return;
-    if (selectedEntry?.count && selectedKey === todayKey && completionUndo?.date === selectedKey && trainingState.lastSessionDate === selectedKey) {
+    if (selectedEntry?.count && selectedKey === todayKey && trainingState.lastSessionDate === selectedKey) {
       undoSessionCompletion();
     } else togglePastDate(selectedKey);
   };
