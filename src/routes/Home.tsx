@@ -3,7 +3,7 @@ import { createPortal, flushSync } from 'react-dom';
 import { format } from 'date-fns';
 import { Undo2, ArrowLeftRight, Check, ChevronDown, ChevronUp, Dumbbell, Flame, Info, RotateCcw, X } from 'lucide-react';
 import clsx from 'clsx';
-import { fallbackA, fallbackB, overloadRules, rotation } from '../data/plans';
+import { fallbackA, fallbackB, overloadRules, rotation, rotationDescription, trainingGuidelines } from '../data/plans';
 import type { TrainingSession } from '../data/plans';
 import { GAP_THRESHOLD_DAYS, getNextSession } from '../data/training';
 import { useStore } from '../store/useStore';
@@ -321,18 +321,18 @@ export function Home() {
           >
             <div ref={exerciseContentRef} style={{ transform: `translateY(-${exerciseOffset}px)` }} className="overflow-hidden rounded-[22px] bg-lift-inset">
               {session.exercises.map((exercise, index) => {
-              const key = `${session.id}-${index}`;
+              const key = `${session.id}-${exercise.id}`;
               const isDone = !!doneExercises[`${dateKey}-${key}`];
               const isExpanded = expandedExercise === key;
               return (
                 <article key={key} className={clsx('mx-4', index > 0 && 'border-t border-lift-border')}>
                   <div className="flex items-center gap-1">
-                    <button type="button" onClick={() => toggleExercise(session.id, index, !isDone)} disabled={isPreview || doneToday || canUndo} aria-pressed={isDone} aria-label={`${isDone ? 'Unmark' : 'Mark'} ${exercise.name} complete`}
+                    <button type="button" onClick={() => toggleExercise(session.id, exercise.id, !isDone)} disabled={isPreview || doneToday || canUndo} aria-pressed={isDone} aria-label={`${isDone ? 'Unmark' : 'Mark'} ${exercise.name} complete`}
                       className={clsx('flex min-h-[68px] min-w-0 flex-1 items-center gap-3 py-2.5 text-left', (isPreview || doneToday) && 'cursor-not-allowed opacity-60')}>
                       <span className={clsx('inline-flex h-[23px] w-[23px] shrink-0 items-center justify-center rounded-full border transition-colors', isDone ? 'border-lift-accent-3 bg-lift-accent-3 text-white' : 'border-lift-border bg-white text-transparent')}><Check className="h-3.5 w-3.5" strokeWidth={2.5} /></span>
                       <span className="min-w-0 flex-1">
                         <span className={clsx('block text-[14px] font-medium leading-snug', isDone && 'text-lift-text-muted line-through')}>{exercise.name}</span>
-                        <span className="mt-1 block text-xs text-lift-text-muted">{exercise.sets} sets <span className="mx-1.5 text-lift-text-dim">·</span> {exercise.reps} reps</span>
+                        <span className="mt-1 block text-xs text-lift-text-muted">{exercise.sets} sets{exercise.reps && <><span className="mx-1.5 text-lift-text-dim">·</span>{formatExerciseReps(exercise.reps)}</>}</span>
                       </span>
                     </button>
                     <button onClick={() => setExpandedExercise(isExpanded ? null : key)} aria-label={`${isExpanded ? 'Hide' : 'Show'} ${exercise.name} note`} className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-lift-text-muted">
@@ -373,12 +373,19 @@ export function Home() {
             <div className="overflow-y-auto p-5">
               <section className="mb-5">
                 <h3 className="mb-1 text-sm font-semibold">Rotation and fallbacks</h3>
+                <p className="mb-2 mt-0 text-[14px] leading-relaxed text-lift-text-muted">{rotationDescription}</p>
                 <p className="m-0 text-[14px] leading-relaxed text-lift-text-muted">The rotation keeps its place. After more than {GAP_THRESHOLD_DAYS} days without a completed session, fallback sessions alternate until your regular cadence resumes.</p>
               </section>
+              {trainingGuidelines.map((guideline) => (
+                <section key={guideline.title} className="mb-5">
+                  <h3 className="mb-1 text-sm font-semibold">{guideline.title}</h3>
+                  <p className="m-0 text-[14px] leading-relaxed text-lift-text-muted">{guideline.text}</p>
+                </section>
+              ))}
               <section>
                 <h3 className="mb-3 text-sm font-semibold">Progressive overload</h3>
                 <div className="divide-y divide-lift-border">
-                  {overloadRules.map((rule) => <div key={rule.rule} className="flex justify-between gap-4 py-3 text-[13px]"><span className="font-medium text-lift-text">{rule.rule}</span><span className="text-right text-lift-text-muted">{rule.add}</span></div>)}
+                  {overloadRules.map((rule) => <div key={rule.rule} className="grid grid-cols-[100px_1fr] gap-4 py-3 text-[13px]"><span className="font-medium text-lift-text">{rule.rule}</span><span className="text-lift-text-muted">{rule.add}</span></div>)}
                 </div>
               </section>
             </div>
@@ -413,4 +420,9 @@ function getCurrentSessionRun(dates: string[], today: Date) {
     run++;
   }
   return run;
+}
+
+function formatExerciseReps(reps: string) {
+  if (reps.endsWith(' each')) return `${reps.slice(0, -5)} reps each`;
+  return /\d+s\b/.test(reps) ? reps : `${reps} reps`;
 }

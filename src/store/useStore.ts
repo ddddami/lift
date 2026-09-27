@@ -30,7 +30,7 @@ interface AppState {
   activityMap: ActivityMap;
   weightLogs: WeightLog[];
 
-  toggleExercise: (sessionId: string, exIdx: number, isDone: boolean) => void;
+  toggleExercise: (sessionId: string, exerciseId: string, isDone: boolean) => void;
   completeSession: (sessionType: SessionType, sessionId: string, sessionLabel: string, exerciseCount: number) => void;
   undoSessionCompletion: (sessionId?: string, date?: string) => void;
   togglePastDate: (dateStr: string) => void;
@@ -54,9 +54,9 @@ export const useStore = create<AppState>()(
       activityMap: {},
       weightLogs: [],
 
-      toggleExercise: (sessionId, exIdx, isDone) => {
+      toggleExercise: (sessionId, exerciseId, isDone) => {
         const dateStr = format(new Date(), 'yyyy-MM-dd');
-        const key = `${dateStr}-${sessionId}-${exIdx}`;
+        const key = `${dateStr}-${sessionId}-${exerciseId}`;
         set((state) => ({
           doneExercises: { ...state.doneExercises, [key]: isDone },
         }));
